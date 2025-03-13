@@ -9,8 +9,11 @@ import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2025.JavammLexer;
 import pt.up.fe.comp2025.JavammParser;
+import pt.up.fe.comp.jmm.ast.JmmNode;
 
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Copyright 2022 SPeCS.
@@ -49,9 +52,11 @@ public class JmmParserImpl implements JmmParser {
             // Convert ANTLR CST to JmmNode AST
             var r = AntlrParser.parse(lex, parser, startingRule, config);
 
-            //if (r.getRootNode() != null) {
-            //    System.out.println("AST:\n" + r.getRootNode().toTree());
-            //}
+
+            if (r.getRootNode() != null) {
+                List<String> imports = extractImports(r.getRootNode());
+                config.put("imports", String.join(",", imports));
+            }
 
             return r;
 
@@ -59,5 +64,16 @@ public class JmmParserImpl implements JmmParser {
             // There was an uncaught exception during parsing, create an error JmmParserResult without root node
             return JmmParserResult.newError(Report.newError(Stage.SYNTATIC, -1, -1, "Exception during parsing", e), config);
         }
+    }
+
+    private List<String> extractImports(JmmNode root) {
+        List<String> imports = new ArrayList<>();
+        for (JmmNode child : root.getChildren()) {
+            if (child.getKind().equals("importDecl")) {
+                String importName = child.get("name");
+                imports.add(importName);
+            }
+        }
+        return imports;
     }
 }

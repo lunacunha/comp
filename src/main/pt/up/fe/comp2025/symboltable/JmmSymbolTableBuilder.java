@@ -39,15 +39,18 @@ public class JmmSymbolTableBuilder {
         reports = new ArrayList<>();
 
         // TODO: After your grammar supports more things inside the program (e.g., imports) you will have to change this
+        List<String> imports = buildImports(root);
+
         var classDecl = root.getChild(0);
         SpecsCheck.checkArgument(Kind.CLASS_DECL.check(classDecl), () -> "Expected a class declaration: " + classDecl);
+
         String className = classDecl.get("name");
         var methods = buildMethods(classDecl);
         var returnTypes = buildReturnTypes(classDecl);
         var params = buildParams(classDecl);
         var locals = buildLocals(classDecl);
 
-        return new JmmSymbolTable(className, methods, returnTypes, params, locals);
+        return new JmmSymbolTable(imports, className, methods, returnTypes, params, locals);
     }
 
 
@@ -107,6 +110,16 @@ public class JmmSymbolTableBuilder {
 
         return methods;
     }
+
+    private List<String> buildImports(JmmNode root) {
+        List<String> imports = new ArrayList<>();
+        for (JmmNode child : root.getChildren("importDecl")) {
+            imports.add(child.get("name"));
+        }
+        return imports;
+    }
+
+
 
 
 }

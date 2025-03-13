@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 public class JmmSymbolTable extends AJmmSymbolTable {
 
+    private final List<String> imports;
     private final String className;
     private final List<String> methods;
     private final Map<String, Type> returnTypes;
@@ -18,12 +19,12 @@ public class JmmSymbolTable extends AJmmSymbolTable {
     private final Map<String, List<Symbol>> locals;
 
 
-    public JmmSymbolTable(String className,
+    public JmmSymbolTable(List<String> imports, String className,
                           List<String> methods,
                           Map<String, Type> returnTypes,
                           Map<String, List<Symbol>> params,
                           Map<String, List<Symbol>> locals) {
-
+        this.imports = imports;
         this.className = className;
         this.methods = methods;
         this.returnTypes = returnTypes;
@@ -33,7 +34,7 @@ public class JmmSymbolTable extends AJmmSymbolTable {
 
     @Override
     public List<String> getImports() {
-        throw new NotImplementedException();
+        return imports;
     }
 
     @Override
@@ -61,23 +62,22 @@ public class JmmSymbolTable extends AJmmSymbolTable {
     @Override
     public Type getReturnType(String methodSignature) {
         // TODO: Simple implementation that needs to be expanded
-        return TypeUtils.newIntType();
+        return returnTypes.getOrDefault(methodSignature, TypeUtils.newIntType());
     }
 
     @Override
     public List<Symbol> getParameters(String methodSignature) {
-        return params.get(methodSignature);
+        return params.getOrDefault(methodSignature, Collections.emptyList());
     }
 
     @Override
     public List<Symbol> getLocalVariables(String methodSignature) {
-        return locals.get(methodSignature);
+        return locals.getOrDefault(methodSignature, Collections.emptyList());
     }
 
     @Override
     public String toString() {
         return print();
     }
-
 
 }

@@ -29,8 +29,12 @@ public class JmmAnalysisImpl implements JmmAnalysis {
      * @return
      */
     private List<AnalysisVisitor> buildPasses(SymbolTable table) {
-        return List.of(new UndeclaredVariable());
+        List<AnalysisVisitor> passes = new ArrayList<>();
+        passes.add(new UndeclaredVariable());
+        passes.add(new ImportUsageCheck());
+        return passes;
     }
+
 
     @Override
     public JmmSemanticsResult buildSymbolTable(JmmParserResult parserResult) {
