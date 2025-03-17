@@ -21,6 +21,12 @@ public class TypeUtils {
         return new Type("int", false);
     }
 
+    public static Type newIntArrayType() { return new Type("int", true); }
+
+    public static Type newBooleanType() { return new Type("boolean",false); }
+
+    public static Type newBooleanArrayType() { return new Type("boolean",true); }
+
     public static Type convertType(JmmNode typeNode) {
 
         // TODO: When you support new types, this must be updated
