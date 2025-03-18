@@ -4,7 +4,6 @@ import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.report.Report;
-import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2025.ast.Kind;
 import pt.up.fe.comp2025.ast.TypeUtils;
 import pt.up.fe.specs.util.SpecsCheck;
@@ -16,8 +15,6 @@ import java.util.Map;
 
 import java.util.stream.Collectors;
 import java.util.Objects;
-
-import static pt.up.fe.comp2025.ast.Kind.*;
 
 public class JmmSymbolTableBuilder {
 
@@ -37,7 +34,7 @@ public class JmmSymbolTableBuilder {
                 () -> "Expected a class declaration: " + classDecl);
 
         String className = classDecl.get("name");
-        String superClass = classDecl.getChildren("ID").size() > 1 ? classDecl.getChildren("ID").get(1).get("name") : null;
+        String superClass = classDecl.hasAttribute("superClass") ? classDecl.get("superClass") : null;
 
         var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
@@ -68,8 +65,10 @@ public class JmmSymbolTableBuilder {
         List<Symbol> fields = new ArrayList<>();
         for (var field : classDecl.getChildren(Kind.VAR_DECL.getNodeName())) {
             if (!field.hasAttribute("name")) continue;
-            var typeNode = field.getChildren("Type").get(0);
-            fields.add(new Symbol(parseType(typeNode), field.get("name")));
+            var fields_name = field.get("name");
+            var children = field.getChildren();
+            Type fields_type = TypeUtils.convertType(children.get(0));
+            fields.add(new Symbol(fields_type, fields_name));
         }
         return fields;
     }
@@ -80,7 +79,7 @@ public class JmmSymbolTableBuilder {
             if (method.hasAttribute("name")) {
                 methods.add(method.get("name"));
             } else {
-                methods.add("main"); // Se não tiver nome, pode ser um `main`
+                methods.add("main");
             }
         }
         return methods;
@@ -88,12 +87,12 @@ public class JmmSymbolTableBuilder {
 
 
     private Map<String, Type> buildReturnTypes(JmmNode classDecl) {
-        Map<String, Type> map = new HashMap<>();
+        Map<String, Type> returnTypes = new HashMap<>();
         for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
             var returnType = method.getChildren("Type").isEmpty() ? new Type("void", false) : parseType(method.getChildren("Type").get(0));
-            map.put(method.get("name"), returnType);
+            returnTypes.put(method.get("name"), returnType);
         }
-        return map;
+        return returnTypes;
     }
 
     private Map<String, List<Symbol>> buildParams(JmmNode classDecl) {

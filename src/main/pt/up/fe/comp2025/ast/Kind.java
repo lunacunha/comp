@@ -15,12 +15,15 @@ import java.util.List;
 public enum Kind {
     PROGRAM,
     IMPORT_DECL, // added
+    IMPORT_PART, // added
     CLASS_DECL,
     SUPER_CLASS_DECL, // added
     VAR_DECL,
     FIELD_DECL, // added
     TYPE,
     METHOD_DECL,
+    NORMAL_METHOD_DECL, // added
+    MAIN_METHOD_DECL, // added
     PARAM, // added
     STMT,
     EXPR_STMT, // added
