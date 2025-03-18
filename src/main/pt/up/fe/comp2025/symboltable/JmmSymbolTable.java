@@ -55,6 +55,7 @@ public class JmmSymbolTable extends AJmmSymbolTable {
         return superClass;
     }
 
+
     @Override
     public List<Symbol> getFields() {
         return fields;
@@ -69,9 +70,9 @@ public class JmmSymbolTable extends AJmmSymbolTable {
 
     @Override
     public Type getReturnType(String methodSignature) {
-        // TODO: Simple implementation that needs to be expanded
-        return returnTypes.getOrDefault(methodSignature, TypeUtils.newIntType());
+        return returnTypes.get(methodSignature);
     }
+
 
     @Override
     public List<Symbol> getParameters(String methodSignature) {
@@ -80,8 +81,9 @@ public class JmmSymbolTable extends AJmmSymbolTable {
 
     @Override
     public List<Symbol> getLocalVariables(String methodSignature) {
-        return locals.getOrDefault(methodSignature, new ArrayList<>());
+        return locals.containsKey(methodSignature) ? locals.get(methodSignature) : Collections.emptyList();
     }
+
 
     @Override
     public String toString() {

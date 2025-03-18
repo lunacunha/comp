@@ -63,15 +63,18 @@ public class JmmSymbolTableBuilder {
 
     private List<Symbol> buildFields(JmmNode classDecl) {
         List<Symbol> fields = new ArrayList<>();
-        for (var field : classDecl.getChildren(Kind.VAR_DECL.getNodeName())) {
-            if (!field.hasAttribute("name")) continue;
-            var fields_name = field.get("name");
-            var children = field.getChildren();
-            Type fields_type = TypeUtils.convertType(children.get(0));
-            fields.add(new Symbol(fields_type, fields_name));
+
+        for (JmmNode varDecl : classDecl.getChildren(Kind.VAR_DECL.getNodeName())) {
+            if (!varDecl.hasAttribute("name")) continue;
+
+            Type fieldType = parseType(varDecl.getChildren(Kind.TYPE.getNodeName()).get(0));
+            String fieldName = varDecl.get("name");
+            fields.add(new Symbol(fieldType, fieldName));
         }
+
         return fields;
     }
+
 
     private List<String> buildMethods(JmmNode classDecl) {
         List<String> methods = new ArrayList<>();
@@ -98,18 +101,19 @@ public class JmmSymbolTableBuilder {
     private Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
         Map<String, List<Symbol>> map = new HashMap<>();
         for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
-            if (!method.hasAttribute("name")) continue;
-            var name = method.get("name");
-            var params = method.getChildren(Kind.PARAM.getNodeName()).stream()
-                    .map(param -> {
-                        if (!param.getChildren(Kind.TYPE.getNodeName()).isEmpty() && param.hasAttribute("name")) {
-                            return new Symbol(parseType(param.getChildren(Kind.TYPE.getNodeName()).get(0)), param.get("name"));
-                        }
-                        return null;
-                    })
-                    .filter(Objects::nonNull)
-                    .toList();
-            map.put(name, params);
+            if (!method.hasAttribute("name")) {
+                continue;
+            }
+            var method_name = method.get("name");
+            List<Symbol> param_list = new ArrayList<>();
+
+            for (var param : method.getChildren(Kind.PARAM_DECL.getNodeName())) {
+                Type param_type = parseType(param.getChildren(Kind.TYPE.getNodeName()).get(0));
+                String param_name = param.get("name");
+                param_list.add(new Symbol(param_type, param_name));
+            }
+
+            map.put(method_name, param_list);
         }
         return map;
     }
@@ -140,4 +144,5 @@ public class JmmSymbolTableBuilder {
                 return new Type(typeNode.hasAttribute("name") ? typeNode.get("name") : "unknown", typeNode.hasAttribute("array"));
         }
     }
+
 }
