@@ -29,11 +29,22 @@ public enum Kind {
     PARAM_LIST, // added
     STMT,
     EXPR_STMT, // added
+    WHILE_STMT, // added
+    IF_STMT, // added
+    METHOD_CALL_EXPR, // added
+    LOCAL_METHOD_CALL_EXPR, // added
+    ARGUMENT, // added
+    NEW_CLASS_EXPR, // added
+    NEW_ARRAY_EXPR, // added
+    ARRAY_ACCESS_EXPR, // added
+    ARRAY_LITERAL_EXPR, // added
+    THIS_EXPR, // added
     ASSIGN_STMT,
     RETURN_STMT,
     EXPR,
     BINARY_EXPR,
     INTEGER_LITERAL,
+    BOOLEAN_LITERAL,
     VAR_REF_EXPR;
 
     private final String name;
