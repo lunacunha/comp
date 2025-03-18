@@ -37,8 +37,9 @@ BOOLEAN : 'boolean' ;
 
 WS : [ \t\n\r\f]+ -> skip ;
 
+
 importDecl
-    : 'import' ID ('.' ID)* SEMI_COLON
+    : 'import' name=ID ('.' ID)* SEMI_COLON
     ;
 
 program
@@ -55,20 +56,21 @@ classDecl
 
 
 varDecl
-    : type ID SEMI_COLON
+    : type name=ID SEMI_COLON
     ;
 
 type
-    : INT
-    | BOOLEAN
-    | ID
-    | INT '...'
-    | BOOLEAN '...'
-    | INT LEFT_BRACKET RIGHT_BRACKET
+    : INT '...'                  #VarArgInt
+    | BOOLEAN '...'               #VarArgBool
+    | INT                         #IntType
+    | BOOLEAN                     #BooleanType
+    | ID                          #ClassType
+    | INT LEFT_BRACKET RIGHT_BRACKET #ArrayType
     ;
 
+
 methodDecl
-    : (PUBLIC)? type ID LEFT_PARENTHESES (param (',' param)*)? RIGHT_PARENTHESES
+    : (PUBLIC)? type name=ID LEFT_PARENTHESES (param (',' param)*)? RIGHT_PARENTHESES
       LEFT_BRACE varDecl* stmt* RETURN expr SEMI_COLON RIGHT_BRACE
     | (PUBLIC)? 'static' 'void' 'main' LEFT_PARENTHESES ID LEFT_BRACKET RIGHT_BRACKET ID RIGHT_PARENTHESES
       LEFT_BRACE varDecl* stmt* RIGHT_BRACE

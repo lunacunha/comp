@@ -13,28 +13,30 @@ public class JmmSymbolTable extends AJmmSymbolTable {
 
     private final List<String> imports;
     private final String className;
-    private final String superClassName;
+    private final String superClass;
+    private final List<Symbol> fields;
     private final List<String> methods;
     private final Map<String, Type> returnTypes;
     private final Map<String, List<Symbol>> params;
-    private final List<Symbol> fields;
     private final Map<String, List<Symbol>> locals;
 
 
-    public JmmSymbolTable(List<String> imports, String className,
-                          String superClassName,
+    public JmmSymbolTable(String className,
+                          String superClass,
+                          List<String> imports,
+                          List<Symbol> fields,
                           List<String> methods,
                           Map<String, Type> returnTypes,
                           Map<String, List<Symbol>> params,
-                          List<Symbol> fields,
                           Map<String, List<Symbol>> locals) {
+
         this.imports = imports;
         this.className = className;
-        this.superClassName = superClassName;
+        this.superClass = superClass;
+        this.fields = fields;
         this.methods = methods;
         this.returnTypes = returnTypes;
         this.params = params;
-        this.fields = fields;
         this.locals = locals;
     }
 
@@ -50,7 +52,7 @@ public class JmmSymbolTable extends AJmmSymbolTable {
 
     @Override
     public String getSuper() {
-        return superClassName;
+        return superClass;
     }
 
     @Override
@@ -73,17 +75,18 @@ public class JmmSymbolTable extends AJmmSymbolTable {
 
     @Override
     public List<Symbol> getParameters(String methodSignature) {
-        return params.getOrDefault(methodSignature, Collections.emptyList());
+        return params.getOrDefault(methodSignature, new ArrayList<>());
     }
 
     @Override
     public List<Symbol> getLocalVariables(String methodSignature) {
-        return locals.getOrDefault(methodSignature, Collections.emptyList());
+        return locals.getOrDefault(methodSignature, new ArrayList<>());
     }
 
     @Override
     public String toString() {
         return print();
     }
+
 
 }

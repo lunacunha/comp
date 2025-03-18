@@ -6,28 +6,30 @@ import pt.up.fe.specs.util.SpecsStrings;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Enum that mirrors the nodes that are supported by the AST.
  *
- * This enum allows to handle nodes in a safer and more flexible way that using strings with the names of the nodes.
+ * This enum allows handling nodes in a safer and more flexible way than using strings with node names.
  */
 public enum Kind {
     PROGRAM,
+    IMPORT_DECL, // added
     CLASS_DECL,
+    SUPER_CLASS_DECL, // added
     VAR_DECL,
+    FIELD_DECL, // added
     TYPE,
     METHOD_DECL,
-    PARAM,
+    PARAM, // added
     STMT,
+    EXPR_STMT, // added
     ASSIGN_STMT,
     RETURN_STMT,
     EXPR,
     BINARY_EXPR,
     INTEGER_LITERAL,
     VAR_REF_EXPR;
-
 
     private final String name;
 
@@ -40,7 +42,6 @@ public enum Kind {
     }
 
     public static Kind fromString(String kind) {
-
         for (Kind k : Kind.values()) {
             if (k.getNodeName().equals(kind)) {
                 return k;
@@ -53,7 +54,7 @@ public enum Kind {
         var nodeNames = new ArrayList<String>();
         nodeNames.add(firstKind.getNodeName());
 
-        for(Kind kind : otherKinds) {
+        for (Kind kind : otherKinds) {
             nodeNames.add(kind.getNodeName());
         }
 
@@ -76,7 +77,7 @@ public enum Kind {
      * @return
      */
     public boolean check(JmmNode node) {
-        return node.isInstance(this);
+        return node.getKind().equals(this.name); // Corrigido para evitar erro
     }
 
     /**
@@ -85,7 +86,6 @@ public enum Kind {
      * @param node
      */
     public void checkOrThrow(JmmNode node) {
-
         if (!check(node)) {
             throw new RuntimeException("Node '" + node + "' is not a '" + getNodeName() + "'");
         }
@@ -99,28 +99,22 @@ public enum Kind {
      * @return
      */
     public static boolean check(JmmNode node, Kind... kindsToTest) {
-
         for (Kind k : kindsToTest) {
-
-            // if any matches, return successfully
             if (k.check(node)) {
-
                 return true;
             }
         }
-
         return false;
     }
 
     /**
-     * Performs a check an all kinds to test and throws if none matches. Otherwise, does nothing.
+     * Performs a check on all kinds to test and throws if none matches. Otherwise, does nothing.
      *
      * @param node
      * @param kindsToTest
      */
     public static void checkOrThrow(JmmNode node, Kind... kindsToTest) {
         if (!check(node, kindsToTest)) {
-            // throw if none matches
             throw new RuntimeException("Node '" + node + "' is not any of " + Arrays.asList(kindsToTest));
         }
     }
