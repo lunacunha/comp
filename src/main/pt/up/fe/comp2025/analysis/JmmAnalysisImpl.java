@@ -31,7 +31,6 @@ public class JmmAnalysisImpl implements JmmAnalysis {
     private List<AnalysisVisitor> buildPasses(SymbolTable table) {
         List<AnalysisVisitor> passes = new ArrayList<>();
         passes.add(new UndeclaredVariable());
-        passes.add(new TypeCheck());
 
         return passes;
     }

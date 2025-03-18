@@ -68,7 +68,7 @@ type
     | INT                         #IntType
     | BOOLEAN                     #BooleanType
     | name=ID                          #ClassType
-    | INT LEFT_BRACKET RIGHT_BRACKET #ArrayType
+    | INT LEFT_BRACKET RIGHT_BRACKET #IntArrayType
     ;
 
 
