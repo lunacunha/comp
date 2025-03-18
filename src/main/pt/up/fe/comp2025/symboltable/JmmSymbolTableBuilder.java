@@ -40,7 +40,7 @@ public class JmmSymbolTableBuilder {
         var methods = buildMethods(classDecl);
         var returnTypes = buildReturnTypes(classDecl);
         var params = buildParams(classDecl);
-        var locals = buildLocals(classDecl);
+        var locals = buildLocals(classDecl, fields);
 
         return new JmmSymbolTable(className, superClass, imports, fields, methods, returnTypes, params, locals);
     }
@@ -65,11 +65,13 @@ public class JmmSymbolTableBuilder {
         List<Symbol> fields = new ArrayList<>();
 
         for (JmmNode varDecl : classDecl.getChildren(Kind.VAR_DECL.getNodeName())) {
-            if (!varDecl.hasAttribute("name")) continue;
+            if (!varDecl.hasAttribute("name")) {
+                continue;
+            }
 
-            Type fieldType = parseType(varDecl.getChildren(Kind.TYPE.getNodeName()).get(0));
-            String fieldName = varDecl.get("name");
-            fields.add(new Symbol(fieldType, fieldName));
+            Type field_type = parseType(varDecl.getChildren(Kind.TYPE.getNodeName()).get(0));
+            String field_name = varDecl.get("name");
+            fields.add(new Symbol(field_type, field_name));
         }
 
         return fields;
@@ -119,15 +121,23 @@ public class JmmSymbolTableBuilder {
     }
 
 
-    private Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
+    private Map<String, List<Symbol>> buildLocals(JmmNode classDecl, List<Symbol> fields) {
         Map<String, List<Symbol>> map = new HashMap<>();
+
         for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
-            var name = method.get("name");
-            var locals = method.getChildren(Kind.VAR_DECL.getNodeName()).stream()
-                    .filter(varDecl -> varDecl.hasAttribute("name"))
-                    .map(varDecl -> new Symbol(parseType(varDecl.getChildren("Type").get(0)), varDecl.get("name")))
-                    .toList();
-            map.put(name, locals);
+            var method_name = method.get("name");
+            List<Symbol> locals = new ArrayList<>();
+
+            for (var local_var : method.getChildren(Kind.VAR_DECL.getNodeName())) {
+                if (local_var.hasAttribute("name")) {
+                    Type var_type = parseType(local_var.getChildren("Type").get(0));
+                    String var_name = local_var.get("name");
+                    locals.add(new Symbol(var_type, var_name));
+                }
+            }
+            locals.addAll(fields);
+
+            map.put(method_name, locals);
         }
         return map;
     }
