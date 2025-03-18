@@ -8,6 +8,7 @@ CLASS : 'class' ;
 INT : 'int' ;
 PUBLIC : 'public' ;
 RETURN : 'return' ;
+IMPORT : 'import' ;
 
 WHILE : 'while' ;
 
@@ -37,18 +38,16 @@ BOOLEAN : 'boolean' ;
 
 WS : [ \t\n\r\f]+ -> skip ;
 
+program
+    : (importDecl)* classDecl+ EOF
+    ;
 
 importDecl
-    : 'import' name=ID ('.' ID)* SEMI_COLON
+    : IMPORT name=ID ('.' ID)* SEMI_COLON
     ;
-
-program
-    : (importDecl)* classDecl EOF
-    ;
-
 
 classDecl
-    : CLASS name=ID ( 'extends' ID )? LEFT_BRACE
+    : CLASS name=ID ( 'extends' superClass=ID )? LEFT_BRACE
         varDecl*
         methodDecl*
       RIGHT_BRACE
@@ -64,28 +63,33 @@ type
     | BOOLEAN '...'               #VarArgBool
     | INT                         #IntType
     | BOOLEAN                     #BooleanType
-    | ID                          #ClassType
+    | name=ID                          #ClassType
     | INT LEFT_BRACKET RIGHT_BRACKET #ArrayType
     ;
 
 
 methodDecl
-    : (PUBLIC)? type name=ID LEFT_PARENTHESES (param (',' param)*)? RIGHT_PARENTHESES
+    : (PUBLIC)? type name=ID LEFT_PARENTHESES (paramDecl (',' paramDecl)*)? RIGHT_PARENTHESES
       LEFT_BRACE varDecl* stmt* RETURN expr SEMI_COLON RIGHT_BRACE
-    | (PUBLIC)? 'static' 'void' 'main' LEFT_PARENTHESES ID LEFT_BRACKET RIGHT_BRACKET ID RIGHT_PARENTHESES
+    | (PUBLIC)? 'static' 'void' name='main' LEFT_PARENTHESES ID LEFT_BRACKET RIGHT_BRACKET ID RIGHT_PARENTHESES
       LEFT_BRACE varDecl* stmt* RIGHT_BRACE
     ;
 
-param
-    : type ID
+paramDecl
+    : type name=ID
+    | type '...' name=ID
+    ;
+
+paramList
+    : paramDecl (',' paramDecl)*
     ;
 
 stmt
     : WHILE LEFT_PARENTHESES expr RIGHT_PARENTHESES stmt             #WhileStatement
     | 'if' LEFT_PARENTHESES expr RIGHT_PARENTHESES stmt 'else' stmt  #IfStatement
     | LEFT_BRACE stmt* RIGHT_BRACE                                   #BlockStatement
-    | ID EQUAL expr SEMI_COLON                                       #AssingStatement
-    | ID LEFT_BRACKET expr RIGHT_BRACKET EQUAL expr SEMI_COLON       #ArrayAssignStatement
+    | name=ID EQUAL expr SEMI_COLON                                       #AssingStatement
+    | name=ID LEFT_BRACKET expr RIGHT_BRACKET EQUAL expr SEMI_COLON       #ArrayAssignStatement
     | expr SEMI_COLON                                                #ExprStatement
     | RETURN expr SEMI_COLON                                         #ReturnStatement
     ;
@@ -97,19 +101,19 @@ expr
     | expr DIV expr                                                       #DivisionExpr
     | expr AND expr                                                       #AndExpr
     | expr LESS_THAN expr                                                 #LessThanExpr
-    | expr '.' ID                                                         #FieldAccess
+    | expr '.' name=ID                                                         #FieldAccess
     | expr LEFT_BRACKET expr RIGHT_BRACKET                                #ArrayAccess
     | expr '.' 'length'                                                   #ArrayLength
     | LEFT_BRACKET (expr (',' expr)*)? RIGHT_BRACKET                      #ArrayInit
-    | expr '.' ID LEFT_PARENTHESES (expr (',' expr)*)? RIGHT_PARENTHESES  #MethodCall
+    | expr '.' name=ID LEFT_PARENTHESES (expr (',' expr)*)? RIGHT_PARENTHESES  #MethodCall
     | 'new' INT LEFT_BRACKET expr RIGHT_BRACKET                           #NewArray
-    | 'new' ID LEFT_PARENTHESES RIGHT_PARENTHESES                         #NewObject
+    | 'new' name=ID LEFT_PARENTHESES RIGHT_PARENTHESES                         #NewObject
     | NOT expr                                                            #Negate
     | LEFT_PARENTHESES expr RIGHT_PARENTHESES                             #ParenthesesExpr
     | TRUE                                                                #BooleanLiteral
     | FALSE                                                               #BooleanLiteral
     | INTEGER                                                             #IntegerLiteral
-    | ID                                                                  #VarRefExpr
+    | name=ID                                                                  #VarRefExpr
     | 'this'                                                              #ThisExpr
     ;
 

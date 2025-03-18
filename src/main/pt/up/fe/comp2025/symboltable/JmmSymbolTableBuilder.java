@@ -15,40 +15,29 @@ import java.util.List;
 import java.util.Map;
 
 import java.util.stream.Collectors;
+import java.util.Objects;
 
 import static pt.up.fe.comp2025.ast.Kind.*;
 
 public class JmmSymbolTableBuilder {
 
-    // In case we want to already check for some semantic errors during symbol table building.
     private List<Report> reports;
 
     public List<Report> getReports() {
         return reports;
     }
 
-    private static Report newError(JmmNode node, String message) {
-        return Report.newError(
-                Stage.SEMANTIC,
-                node.getLine(),
-                node.getColumn(),
-                message,
-                null);
-    }
-
     public JmmSymbolTable build(JmmNode root) {
-
         reports = new ArrayList<>();
 
         var imports = buildImports(root);
-
-        // TODO: After your grammar supports more things inside the program (e.g., imports) you will have to change this
         var classDecl = root.getChildren(Kind.CLASS_DECL.getNodeName()).get(0);
+
         SpecsCheck.checkArgument(classDecl.getKind().equals(Kind.CLASS_DECL.getNodeName()),
                 () -> "Expected a class declaration: " + classDecl);
 
         String className = classDecl.get("name");
-        String superClass = classDecl.hasAttribute("extends") ? classDecl.get("extends") : null;
+        String superClass = classDecl.getChildren("ID").size() > 1 ? classDecl.getChildren("ID").get(1).get("name") : null;
 
         var fields = buildFields(classDecl);
         var methods = buildMethods(classDecl);
@@ -59,51 +48,18 @@ public class JmmSymbolTableBuilder {
         return new JmmSymbolTable(className, superClass, imports, fields, methods, returnTypes, params, locals);
     }
 
-    private Map<String, Type> buildReturnTypes(JmmNode classDecl) {
-        Map<String, Type> map = new HashMap<>();
-        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
-            var name = method.get("name");
-            var returnType = parseType(method.getChildren("Type").get(0)); // Obtém o tipo correto
-            map.put(name, returnType);
-        }
-        return map;
-    }
-
-
-    private Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
-        Map<String, List<Symbol>> map = new HashMap<>();
-        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
-            var name = method.get("name");
-            var params = method.getChildren(Kind.PARAM.getNodeName()).stream()
-                    .map(param -> new Symbol(parseType(param.getChildren("Type").get(0)), param.get("name")))
-                    .toList();
-            map.put(name, params);
-        }
-        return map;
-    }
-
-    private Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
-        Map<String, List<Symbol>> map = new HashMap<>();
-        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
-            var name = method.get("name");
-            var locals = method.getChildren(Kind.VAR_DECL.getNodeName()).stream()
-                    .map(varDecl -> new Symbol(parseType(varDecl.getChildren("Type").get(0)), varDecl.get("name")))
-                    .toList();
-            map.put(name, locals);
-        }
-        return map;
-    }
-
-    private List<String> buildMethods(JmmNode classDecl) {
-        return classDecl.getChildren(Kind.METHOD_DECL.getNodeName()).stream()
-                .map(method -> method.get("name"))
-                .toList();
-    }
-
     private List<String> buildImports(JmmNode root) {
         List<String> imports = new ArrayList<>();
         for (var importDecl : root.getChildren(Kind.IMPORT_DECL.getNodeName())) {
-            imports.add(importDecl.get("name"));
+            List<JmmNode> parts = importDecl.getChildren("ImportPart");
+            if (!parts.isEmpty()) {
+                String fullImport = parts.stream()
+                        .map(node -> node.get("name"))
+                        .collect(Collectors.joining("."));
+                imports.add(fullImport);
+            } else if (importDecl.hasAttribute("name")) {
+                imports.add(importDecl.get("name"));
+            }
         }
         return imports;
     }
@@ -111,15 +67,78 @@ public class JmmSymbolTableBuilder {
     private List<Symbol> buildFields(JmmNode classDecl) {
         List<Symbol> fields = new ArrayList<>();
         for (var field : classDecl.getChildren(Kind.VAR_DECL.getNodeName())) {
-            fields.add(new Symbol(parseType(field.getChildren("Type").get(0)), field.get("name")));
+            if (!field.hasAttribute("name")) continue;
+            var typeNode = field.getChildren("Type").get(0);
+            fields.add(new Symbol(parseType(typeNode), field.get("name")));
         }
         return fields;
     }
 
-    private Type parseType(JmmNode typeNode) {
-        String typeName = typeNode.get("name");
-        boolean isArray = typeNode.hasAttribute("array") && typeNode.get("array").equals("true");
-        return new Type(typeName, isArray);
+    private List<String> buildMethods(JmmNode classDecl) {
+        List<String> methods = new ArrayList<>();
+        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
+            if (method.hasAttribute("name")) {
+                methods.add(method.get("name"));
+            } else {
+                methods.add("main"); // Se não tiver nome, pode ser um `main`
+            }
+        }
+        return methods;
     }
 
+
+    private Map<String, Type> buildReturnTypes(JmmNode classDecl) {
+        Map<String, Type> map = new HashMap<>();
+        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
+            var returnType = method.getChildren("Type").isEmpty() ? new Type("void", false) : parseType(method.getChildren("Type").get(0));
+            map.put(method.get("name"), returnType);
+        }
+        return map;
+    }
+
+    private Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
+        Map<String, List<Symbol>> map = new HashMap<>();
+        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
+            if (!method.hasAttribute("name")) continue;
+            var name = method.get("name");
+            var params = method.getChildren(Kind.PARAM.getNodeName()).stream()
+                    .map(param -> {
+                        if (!param.getChildren(Kind.TYPE.getNodeName()).isEmpty() && param.hasAttribute("name")) {
+                            return new Symbol(parseType(param.getChildren(Kind.TYPE.getNodeName()).get(0)), param.get("name"));
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
+                    .toList();
+            map.put(name, params);
+        }
+        return map;
+    }
+
+
+    private Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
+        Map<String, List<Symbol>> map = new HashMap<>();
+        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
+            var name = method.get("name");
+            var locals = method.getChildren(Kind.VAR_DECL.getNodeName()).stream()
+                    .filter(varDecl -> varDecl.hasAttribute("name"))
+                    .map(varDecl -> new Symbol(parseType(varDecl.getChildren("Type").get(0)), varDecl.get("name")))
+                    .toList();
+            map.put(name, locals);
+        }
+        return map;
+    }
+
+    private Type parseType(JmmNode typeNode) {
+        switch (typeNode.getKind()) {
+            case "IntType":
+                return new Type("int", false);
+            case "BooleanType":
+                return new Type("boolean", false);
+            case "IntArrayType":
+                return new Type("int", true);
+            default:
+                return new Type(typeNode.hasAttribute("name") ? typeNode.get("name") : "unknown", typeNode.hasAttribute("array"));
+        }
+    }
 }
