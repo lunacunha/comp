@@ -29,11 +29,16 @@ public class TypeUtils {
 
     public static Type convertType(JmmNode typeNode) {
 
-        // TODO: When you support new types, this must be updated
-        var name = typeNode.get("name");
-        var isArray = false;
-
-        return new Type(name, isArray);
+        switch (typeNode.getKind()) {
+            case "IntType":
+                return new Type("int", false);
+            case "BooleanType":
+                return new Type("boolean", false);
+            case "IntArrayType":
+                return new Type("int", true);
+            default:
+                return new Type(typeNode.hasAttribute("name") ? typeNode.get("name") : "unknown", typeNode.hasAttribute("array"));
+        }
     }
 
 

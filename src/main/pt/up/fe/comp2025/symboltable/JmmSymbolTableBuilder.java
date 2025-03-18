@@ -16,6 +16,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.Objects;
 
+import static pt.up.fe.comp2025.ast.TypeUtils.convertType;
+
 public class JmmSymbolTableBuilder {
 
     private List<Report> reports;
@@ -69,7 +71,7 @@ public class JmmSymbolTableBuilder {
                 continue;
             }
 
-            Type field_type = parseType(varDecl.getChildren(Kind.TYPE.getNodeName()).get(0));
+            Type field_type = convertType(varDecl.getChildren(Kind.TYPE.getNodeName()).get(0));
             String field_name = varDecl.get("name");
             fields.add(new Symbol(field_type, field_name));
         }
@@ -104,7 +106,7 @@ public class JmmSymbolTableBuilder {
             Type returnType;
 
             if (!method.getChildren(Kind.TYPE.getNodeName()).isEmpty()) {
-                returnType = parseType(method.getChildren(Kind.TYPE.getNodeName()).get(0));
+                returnType = convertType(method.getChildren(Kind.TYPE.getNodeName()).get(0));
             } else {
                 returnType = new Type("void", false);
             }
@@ -127,7 +129,7 @@ public class JmmSymbolTableBuilder {
             List<Symbol> param_list = new ArrayList<>();
 
             for (var param : method.getChildren(Kind.PARAM_DECL.getNodeName())) {
-                Type param_type = parseType(param.getChildren(Kind.TYPE.getNodeName()).get(0));
+                Type param_type = convertType(param.getChildren(Kind.TYPE.getNodeName()).get(0));
                 String param_name = param.get("name");
                 param_list.add(new Symbol(param_type, param_name));
             }
@@ -147,7 +149,7 @@ public class JmmSymbolTableBuilder {
 
             for (var local_var : method.getChildren(Kind.VAR_DECL.getNodeName())) {
                 if (local_var.hasAttribute("name")) {
-                    Type var_type = parseType(local_var.getChildren("Type").get(0));
+                    Type var_type = convertType(local_var.getChildren("Type").get(0));
                     String var_name = local_var.get("name");
                     locals.add(new Symbol(var_type, var_name));
                 }
@@ -159,17 +161,6 @@ public class JmmSymbolTableBuilder {
         return map;
     }
 
-    private Type parseType(JmmNode typeNode) {
-        switch (typeNode.getKind()) {
-            case "IntType":
-                return new Type("int", false);
-            case "BooleanType":
-                return new Type("boolean", false);
-            case "IntArrayType":
-                return new Type("int", true);
-            default:
-                return new Type(typeNode.hasAttribute("name") ? typeNode.get("name") : "unknown", typeNode.hasAttribute("array"));
-        }
-    }
+
 
 }
