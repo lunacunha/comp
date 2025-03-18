@@ -82,7 +82,8 @@ public class JmmSymbolTableBuilder {
         List<String> methods = new ArrayList<>();
         for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
             if (method.hasAttribute("name")) {
-                methods.add(method.get("name"));
+                var method_name = method.get("name");
+                methods.add(method_name);;
             } else {
                 methods.add("main");
             }
@@ -92,13 +93,29 @@ public class JmmSymbolTableBuilder {
 
 
     private Map<String, Type> buildReturnTypes(JmmNode classDecl) {
-        Map<String, Type> returnTypes = new HashMap<>();
+        Map<String, Type> return_types = new HashMap<>();
+
         for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
-            var returnType = method.getChildren("Type").isEmpty() ? new Type("void", false) : parseType(method.getChildren("Type").get(0));
-            returnTypes.put(method.get("name"), returnType);
+            if (!method.hasAttribute("name")) {
+                continue;
+            }
+
+            String method_name = method.get("name");
+            Type returnType;
+
+            if (!method.getChildren(Kind.TYPE.getNodeName()).isEmpty()) {
+                returnType = parseType(method.getChildren(Kind.TYPE.getNodeName()).get(0));
+            } else {
+                returnType = new Type("void", false);
+            }
+
+            return_types.put(method_name, returnType);
+
         }
-        return returnTypes;
+
+        return return_types;
     }
+
 
     private Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
         Map<String, List<Symbol>> map = new HashMap<>();

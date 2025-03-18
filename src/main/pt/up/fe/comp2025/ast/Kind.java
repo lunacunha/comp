@@ -21,10 +21,12 @@ public enum Kind {
     VAR_DECL,
     FIELD_DECL, // added
     TYPE,
+    ARRAY_TYPE, // added
     METHOD_DECL,
     NORMAL_METHOD_DECL, // added
     MAIN_METHOD_DECL, // added
     PARAM_DECL, // added
+    PARAM_LIST, // added
     STMT,
     EXPR_STMT, // added
     ASSIGN_STMT,

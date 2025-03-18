@@ -38,6 +38,7 @@ public class JmmSymbolTable extends AJmmSymbolTable {
         this.returnTypes = returnTypes;
         this.params = params;
         this.locals = locals;
+
     }
 
     @Override

@@ -87,6 +87,8 @@ public class SymbolTableTest {
         for (var m : methods) {
             var ret = st.getReturnType(m);
             var numParameters = st.getParameters(m).size();
+
+
             switch (ret.getName()) {
                 case "MethodsAndFields":
                     checkObj++;
