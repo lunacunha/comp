@@ -10,7 +10,9 @@ import pt.up.fe.comp2025.ast.TypeUtils;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class TypeCheck extends AnalysisVisitor {
@@ -22,7 +24,7 @@ public class TypeCheck extends AnalysisVisitor {
     @Override
     public void buildVisitor() {
         addVisit(Kind.METHOD_DECL.getNodeName(), this::visitMethod);
-        addVisit(Kind.RETURN_STMT.getNodeName(), this::visitReturn);
+        addVisit("ReturnStatement", this::visitReturn);
         addVisit(Kind.ASSIGN_STMT.getNodeName(), this::visitAssign);
         addVisit(Kind.ADDITION_EXPR.getNodeName(), this::visitBinaryExpr);
         addVisit(Kind.SUBTRACTION_EXPR.getNodeName(), this::visitBinaryExpr);
@@ -39,37 +41,58 @@ public class TypeCheck extends AnalysisVisitor {
         addVisit(Kind.LOCAL_METHOD_CALL_EXPR.getNodeName(), this::visitMethodCall);
     }
 
+    private final Set<String> seenKinds = new HashSet<>();
+
     @Override
     public Void visit(JmmNode node, SymbolTable table) {
         this.symbolTable = table;
         this.typeUtils = new TypeUtils(table);
-        System.out.println(">> [DEBUG] Visiting node: " + node.getKind());
+
+        String kind = node.getKind();
+        if (!seenKinds.contains(kind)) {
+            System.out.println(">> [KIND] Found new kind: " + kind);
+            seenKinds.add(kind);
+        }
+
         return super.visit(node, table);
     }
 
+
+    /*@Override
+    public Void visit(JmmNode node, SymbolTable table) {
+        System.out.println(">> [DEBUG] Visiting node: " + node.getKind() + " @ line: " + node.getLine() + ", col: " + node.getColumn());
+        System.out.println("   [INFO] Node attributes: " + node.getAttributes());
+        System.out.println("   [INFO] Node children: " + node.getChildren().stream().map(JmmNode::getKind).toList());
+        this.symbolTable = table;
+        this.typeUtils = new TypeUtils(table);
+        System.out.println(">> [DEBUG] Visiting node: " + node.getKind());
+        return super.visit(node, table);
+    }*/
+
     private Void visitMethod(JmmNode method, SymbolTable table) {
         currentMethod = method.get("name");
+        System.out.println(">> [DEBUG] Current method: " + currentMethod + " @ line: " + method.getLine());
         return null;
     }
 
     private Void visitReturn(JmmNode retNode, SymbolTable table) {
-        if (currentMethod == null) return null;
-        Type expected = table.getReturnType(currentMethod);
+        System.out.println(">> [DEBUG] Entered visitReturn for method: " + currentMethod + " @ line: " + retNode.getLine());
 
-        if (retNode.getChildren().isEmpty()) {
-            if (!expected.getName().equals("void")) {
-                addReport(Report.newError(Stage.SEMANTIC, retNode.getLine(), retNode.getColumn(),
-                        "Expected return of type '" + expected + "', got void.", null));
-            }
-        } else {
-            Type actual = inferType(retNode.getChild(0));
-            if (!actual.getName().equals("unknown") && !typeUtils.isCompatible(expected, actual)) {
-                addReport(Report.newError(Stage.SEMANTIC, retNode.getLine(), retNode.getColumn(),
-                        "Return type mismatch: expected '" + expected + "', got '" + actual + "'", null));
-            }
+        if (currentMethod == null) return null;
+
+        Type expected = table.getReturnType(currentMethod);
+        Type actual = inferType(retNode.getChild(0));
+        System.out.println(">> [DEBUG] Return type check: expected = " + expected + ", actual = " + actual);
+
+
+        if (!actual.getName().equals("unknown") && !typeUtils.isCompatible(expected, actual)) {
+            addReport(Report.newError(Stage.SEMANTIC, retNode.getLine(), retNode.getColumn(),
+                    "Return type mismatch: expected '" + expected + "', got '" + actual + "'", null));
         }
+
         return null;
     }
+
 
     private Void visitAssign(JmmNode assign, SymbolTable table) {
         String varName = assign.get("name");
@@ -274,7 +297,7 @@ public class TypeCheck extends AnalysisVisitor {
                 Type elemType = inferType(node.getChild(0));
                 yield new Type(elemType.getName(), true);
             }
-            case "MethodCallExpr", "LocalMethodCallExpr" -> {
+            case "MethodCall", "LocalMethodCall" -> {
                 String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
                 if (!symbolTable.getMethods().contains(method)) yield new Type("unknown", false);
                 yield symbolTable.getReturnType(method);

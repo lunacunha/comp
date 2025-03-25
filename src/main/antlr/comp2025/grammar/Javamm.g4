@@ -74,7 +74,7 @@ type
 
 methodDecl
     : (PUBLIC)? type name=ID LEFT_PARENTHESES (paramDecl (',' paramDecl)*)? RIGHT_PARENTHESES
-      LEFT_BRACE varDecl* stmt* RETURN expr SEMI_COLON RIGHT_BRACE
+            LEFT_BRACE varDecl* stmt* RIGHT_BRACE
     | (PUBLIC)? 'static' 'void' name='main' LEFT_PARENTHESES ID LEFT_BRACKET RIGHT_BRACKET ID RIGHT_PARENTHESES
       LEFT_BRACE varDecl* stmt* RIGHT_BRACE
     ;
