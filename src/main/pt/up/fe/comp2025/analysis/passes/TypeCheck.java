@@ -33,7 +33,7 @@ public class TypeCheck extends AnalysisVisitor {
         addVisit(Kind.AND_EXPR.getNodeName(), this::visitBinaryExpr);
         addVisit(Kind.LESS_EXPR.getNodeName(), this::visitBinaryExpr);
         addVisit(Kind.EQUALS_EXPR.getNodeName(), this::visitBinaryExpr);
-        addVisit(Kind.IF_STMT.getNodeName(), this::visitIf);
+        addVisit("IfStatement", this::visitIf);
         addVisit(Kind.WHILE_STMT.getNodeName(), this::visitWhile);
         addVisit(Kind.ARRAY_ACCESS_EXPR.getNodeName(), this::visitArrayAccess);
         addVisit(Kind.ARRAY_LITERAL_EXPR.getNodeName(), this::visitArrayLiteral);
@@ -76,20 +76,17 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
     private Void visitReturn(JmmNode retNode, SymbolTable table) {
-        System.out.println(">> [DEBUG] Entered visitReturn for method: " + currentMethod + " @ line: " + retNode.getLine());
-
-        if (currentMethod == null) return null;
+        if (currentMethod == null) {
+            return null;
+        }
 
         Type expected = table.getReturnType(currentMethod);
         Type actual = inferType(retNode.getChild(0));
-        System.out.println(">> [DEBUG] Return type check: expected = " + expected + ", actual = " + actual);
-
 
         if (!actual.getName().equals("unknown") && !typeUtils.isCompatible(expected, actual)) {
             addReport(Report.newError(Stage.SEMANTIC, retNode.getLine(), retNode.getColumn(),
                     "Return type mismatch: expected '" + expected + "', got '" + actual + "'", null));
         }
-
         return null;
     }
 
@@ -98,9 +95,16 @@ public class TypeCheck extends AnalysisVisitor {
         String varName = assign.get("name");
         Type left = typeUtils.getVarType(varName, currentMethod);
         Type right = inferType(assign.getChild(0));
+        System.out.println(">> [DEBUG] Assigning to var '" + varName + "': left = " + left + ", right = " + right + ", rightKind = " + assign.getChild(0).getKind());
 
-        if (assign.getChild(0).getKind().equals("ArrayLiteralExpr") &&
-                !typeUtils.isValidArrayLiteralAssignment(left, right)) {
+
+        System.out.println(">> [DEBUG] Checking assignment of ArrayInit");
+
+        if (assign.getChild(0).getKind().equals("ArrayInit")
+                && !typeUtils.isValidArrayLiteralAssignment(left, right)) {
+
+            System.out.println(">> [DEBUG] Invalid array literal assignment: left=" + left + ", right=" + right);
+
             addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
                     "Array literal can only be assigned to int arrays, found: " + left, null));
         }
@@ -173,7 +177,11 @@ public class TypeCheck extends AnalysisVisitor {
 
 
     private Void visitIf(JmmNode ifStmt, SymbolTable table) {
+        System.out.println(">> [DEBUG] Entered visitIf at line: " + ifStmt.getLine());
+
         Type condition = inferType(ifStmt.getChild(0));
+        System.out.println(">> [DEBUG] If condition type: " + condition);
+
         if (!condition.getName().equals("unknown") && !TypeUtils.isBoolean(condition)) {
             addReport(Report.newError(Stage.SEMANTIC, ifStmt.getLine(), ifStmt.getColumn(),
                     "Condition of if must be boolean, got: " + condition, null));
@@ -206,8 +214,12 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
     private Void visitArrayLiteral(JmmNode array, SymbolTable table) {
+        System.out.println(">> [DEBUG] Entered visitArrayLiteral at line " + array.getLine());
+
         List<JmmNode> elements = array.getChildren();
-        if (elements.isEmpty()) return null;
+        if (elements.isEmpty()) {
+            return null;
+        }
 
         Type firstType = inferType(elements.get(0));
         for (JmmNode elem : elements) {
@@ -292,11 +304,15 @@ public class TypeCheck extends AnalysisVisitor {
                 yield (op.equals("&&") || op.equals("<") || op.equals("==")) ?
                         TypeUtils.newBooleanType() : TypeUtils.newIntType();
             }
-            case "ArrayLiteralExpr" -> {
+            case "AdditionExpr", "SubtractionExpr", "MultiplicationExpr", "DivisionExpr" -> TypeUtils.newIntType();
+            case "AndExpr", "LessExpr", "EqualsExpr" -> TypeUtils.newBooleanType();
+
+            case "ArrayInit" -> {
                 if (node.getChildren().isEmpty()) yield TypeUtils.newIntArrayType();
                 Type elemType = inferType(node.getChild(0));
                 yield new Type(elemType.getName(), true);
             }
+
             case "MethodCall", "LocalMethodCall" -> {
                 String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
                 if (!symbolTable.getMethods().contains(method)) yield new Type("unknown", false);
