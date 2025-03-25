@@ -6,21 +6,15 @@ import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2025.analysis.AnalysisVisitor;
 import pt.up.fe.comp2025.ast.Kind;
-import pt.up.fe.specs.util.SpecsCheck;
 
-/**
- * Checks if the type of the expression in a return statement is compatible with the method return type.
- *
- * @author JBispo
- */
 public class UndeclaredVariable extends AnalysisVisitor {
 
     private String currentMethod;
 
     @Override
     public void buildVisitor() {
-        addVisit(Kind.METHOD_DECL, this::visitMethodDecl);
-        addVisit(Kind.VAR_REF_EXPR, this::visitVarRefExpr);
+        addVisit(Kind.METHOD_DECL.getNodeName(), this::visitMethodDecl);
+        addVisit(Kind.VAR_REF_EXPR.getNodeName(), this::visitVarRefExpr);
     }
 
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
@@ -28,43 +22,23 @@ public class UndeclaredVariable extends AnalysisVisitor {
         return null;
     }
 
-    private Void visitVarRefExpr(JmmNode varRefExpr, SymbolTable table) {
-        SpecsCheck.checkNotNull(currentMethod, () -> "Expected current method to be set");
+    private Void visitVarRefExpr(JmmNode varRef, SymbolTable table) {
+        String name = varRef.get("name");
 
-        // Check if exists a parameter or variable declaration with the same name as the variable reference
-        var varRefName = varRefExpr.get("name");
-
-
-        // Var is a parameter, return
-        if (table.getParameters(currentMethod).stream()
-                .anyMatch(param -> param.getName().equals(varRefName))) {
-            return null;
+        boolean declared = false;
+        if (table.getParameters(currentMethod).stream().anyMatch(p -> p.getName().equals(name))) {
+            declared = true;
+        } else if (table.getLocalVariables(currentMethod).stream().anyMatch(v -> v.getName().equals(name))) {
+            declared = true;
+        } else if (table.getFields().stream().anyMatch(f -> f.getName().equals(name))) {
+            declared = true;
         }
 
-        // Var is a declared variable, return
-        if (table.getLocalVariables(currentMethod).stream()
-                .anyMatch(varDecl -> varDecl.getName().equals(varRefName))) {
-            return null;
+        if (!declared && !name.equals("this")) {
+            addReport(Report.newError(Stage.SEMANTIC, varRef.getLine(), varRef.getColumn(),
+                    "Variable '" + name + "' does not exist.", null));
         }
-
-        if (table.getFields().stream()
-                .anyMatch(field -> field.getName().equals(varRefName))) {
-            return null;
-        }
-
-
-        // Create error report
-        var message = String.format("Variable '%s' does not exist.", varRefName);
-        addReport(Report.newError(
-                Stage.SEMANTIC,
-                varRefExpr.getLine(),
-                varRefExpr.getColumn(),
-                message,
-                null)
-        );
 
         return null;
     }
-
-
 }

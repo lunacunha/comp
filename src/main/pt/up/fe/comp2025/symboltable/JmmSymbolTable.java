@@ -59,7 +59,7 @@ public class JmmSymbolTable extends AJmmSymbolTable {
 
     @Override
     public List<Symbol> getFields() {
-        return fields != null ? fields : new ArrayList<>();
+        return fields;
     }
 
 

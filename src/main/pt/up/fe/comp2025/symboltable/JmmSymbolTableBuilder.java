@@ -4,17 +4,14 @@ import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.report.Report;
+import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2025.ast.Kind;
 import pt.up.fe.comp2025.ast.TypeUtils;
 import pt.up.fe.specs.util.SpecsCheck;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import java.util.stream.Collectors;
-import java.util.Objects;
 
 import static pt.up.fe.comp2025.ast.TypeUtils.convertType;
 
@@ -49,7 +46,7 @@ public class JmmSymbolTableBuilder {
 
     private List<String> buildImports(JmmNode root) {
         List<String> imports = new ArrayList<>();
-        for (var importDecl : root.getChildren(Kind.IMPORT_DECL.getNodeName())) {
+        for (JmmNode importDecl : root.getChildren(Kind.IMPORT_DECL.getNodeName())) {
             List<JmmNode> parts = importDecl.getChildren("ImportPart");
             if (!parts.isEmpty()) {
                 String fullImport = parts.stream()
@@ -73,6 +70,12 @@ public class JmmSymbolTableBuilder {
 
             Type field_type = convertType(varDecl.getChildren(Kind.TYPE.getNodeName()).get(0));
             String field_name = varDecl.get("name");
+            if (varDecl.getKind().equals("VarArgInt") || varDecl.getKind().equals("VarArgBool")) {
+                reports.add(Report.newError(Stage.SEMANTIC, varDecl.getLine(), varDecl.getColumn(),
+                        "Fields cannot be varargs", null));
+                continue;
+            }
+
             fields.add(new Symbol(field_type, field_name));
         }
 
@@ -82,9 +85,9 @@ public class JmmSymbolTableBuilder {
 
     private List<String> buildMethods(JmmNode classDecl) {
         List<String> methods = new ArrayList<>();
-        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
+        for (JmmNode method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
             if (method.hasAttribute("name")) {
-                var method_name = method.get("name");
+                var method_name = method.hasAttribute("name") ? method.get("name") : "main";
                 methods.add(method_name);;
             } else {
                 methods.add("main");
@@ -95,71 +98,129 @@ public class JmmSymbolTableBuilder {
 
 
     private Map<String, Type> buildReturnTypes(JmmNode classDecl) {
-        Map<String, Type> return_types = new HashMap<>();
+        Map<String, Type> returnTypes = new HashMap<>();
 
-        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
-            if (!method.hasAttribute("name")) {
-                continue;
-            }
-
-            String method_name = method.get("name");
+        for (JmmNode method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
+            String methodName = method.hasAttribute("name") ? method.get("name") : "main";
             Type returnType;
 
-            if (!method.getChildren(Kind.TYPE.getNodeName()).isEmpty()) {
-                returnType = convertType(method.getChildren(Kind.TYPE.getNodeName()).get(0));
-            } else {
+            // Procura o nó filho que representa o tipo de retorno (Kind.TYPE)
+            Optional<JmmNode> typeNode = method.getChildren().stream()
+                    .filter(child -> child.getKind().equals(Kind.TYPE.getNodeName()))
+                    .findFirst();
+
+            if (typeNode.isEmpty()) {
+                // Assume void para métodos sem tipo explícito (como main)
                 returnType = new Type("void", false);
+            } else {
+                returnType = convertType(typeNode.get());
+
+                if (typeNode.get().getKind().equals("VarArgInt") || typeNode.get().getKind().equals("VarArgBool")) {
+                    reports.add(Report.newError(Stage.SEMANTIC, typeNode.get().getLine(), typeNode.get().getColumn(),
+                            "Method return type cannot be vararg", null));
+                }
             }
 
-            return_types.put(method_name, returnType);
-
+            returnTypes.put(methodName, returnType);
         }
 
-        return return_types;
+        return returnTypes;
     }
+
 
 
     private Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
         Map<String, List<Symbol>> map = new HashMap<>();
-        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
-            if (!method.hasAttribute("name")) {
-                continue;
-            }
-            var method_name = method.get("name");
-            List<Symbol> param_list = new ArrayList<>();
 
-            for (var param : method.getChildren(Kind.PARAM_DECL.getNodeName())) {
-                Type param_type = convertType(param.getChildren(Kind.TYPE.getNodeName()).get(0));
-                String param_name = param.get("name");
-                param_list.add(new Symbol(param_type, param_name));
+        for (JmmNode method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
+            String methodName = method.hasAttribute("name") ? method.get("name") : "main";
+            List<Symbol> paramList = new ArrayList<>();
+
+            for (JmmNode param : method.getChildren(Kind.PARAM_DECL.getNodeName())) {
+                Optional<JmmNode> typeNode = param.getChildren().stream()
+                        .filter(child -> child.getKind().equals(Kind.TYPE.getNodeName()))
+                        .findFirst();
+
+                if (typeNode.isEmpty()) {
+                    reports.add(Report.newError(Stage.SEMANTIC, param.getLine(), param.getColumn(),
+                            "Parameter declaration missing type", null));
+                    continue;
+                }
+
+                Type paramType = convertType(typeNode.get());
+                String paramName = param.get("name");
+                paramList.add(new Symbol(paramType, paramName));
             }
 
-            map.put(method_name, param_list);
+            if (methodName.equals("main") && paramList.isEmpty()) {
+                paramList.add(new Symbol(new Type("String", true), "args"));
+            }
+
+            // Regras de vararg
+            boolean foundVararg = false;
+            for (int i = 0; i < paramList.size(); i++) {
+                Symbol param = paramList.get(i);
+                if (param.getType().isArray() && param.getType().getName().equals("int")) {
+                    if (foundVararg) {
+                        reports.add(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
+                                "Only one vararg parameter allowed", null));
+                        break;
+                    }
+                    if (i != paramList.size() - 1) {
+                        reports.add(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
+                                "Vararg parameter must be the last in the parameter list", null));
+                        break;
+                    }
+                    foundVararg = true;
+                }
+            }
+
+            map.put(methodName, paramList);
         }
+
         return map;
     }
+
 
 
     private Map<String, List<Symbol>> buildLocals(JmmNode classDecl, List<Symbol> fields) {
         Map<String, List<Symbol>> map = new HashMap<>();
 
-        for (var method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
-            var method_name = method.get("name");
+        for (JmmNode method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
+            String methodName = method.hasAttribute("name") ? method.get("name") : "main";
             List<Symbol> locals = new ArrayList<>();
 
-            for (var local_var : method.getChildren(Kind.VAR_DECL.getNodeName())) {
-                if (local_var.hasAttribute("name")) {
-                    Type var_type = convertType(local_var.getChildren("Type").get(0));
-                    String var_name = local_var.get("name");
-                    locals.add(new Symbol(var_type, var_name));
-                }
-            }
-            locals.addAll(fields);
+            for (JmmNode localVar : method.getChildren(Kind.VAR_DECL.getNodeName())) {
+                if (!localVar.hasAttribute("name")) continue;
 
-            map.put(method_name, locals);
+                Optional<JmmNode> typeNode = localVar.getChildren().stream()
+                        .filter(child -> child.getKind().equals(Kind.TYPE.getNodeName()))
+                        .findFirst();
+
+                if (typeNode.isEmpty()) {
+                    reports.add(Report.newError(Stage.SEMANTIC, localVar.getLine(), localVar.getColumn(),
+                            "Local variable declaration missing type", null));
+                    continue;
+                }
+
+                Type varType = convertType(typeNode.get());
+                String varName = localVar.get("name");
+
+                if (typeNode.get().getKind().equals("VarArgInt") || typeNode.get().getKind().equals("VarArgBool")) {
+                    reports.add(Report.newError(Stage.SEMANTIC, localVar.getLine(), localVar.getColumn(),
+                            "Local variables cannot be vararg", null));
+                    continue;
+                }
+
+                locals.add(new Symbol(varType, varName));
+            }
+
+            map.put(methodName, locals);
         }
+
         return map;
     }
+
 
 
 
