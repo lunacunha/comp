@@ -91,7 +91,6 @@ public class JmmAnalysisImpl implements JmmAnalysis {
 
         }
 
-
         return new JmmSemanticsResult(semanticsResult, reports);
     }
 

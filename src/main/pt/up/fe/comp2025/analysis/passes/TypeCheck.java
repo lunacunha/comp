@@ -7,9 +7,10 @@ import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2025.analysis.AnalysisVisitor;
 import pt.up.fe.comp2025.ast.Kind;
 import pt.up.fe.comp2025.ast.TypeUtils;
+import pt.up.fe.comp.jmm.report.Report;
+import pt.up.fe.comp.jmm.report.Stage;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class TypeCheck extends AnalysisVisitor {
@@ -23,7 +24,13 @@ public class TypeCheck extends AnalysisVisitor {
         addVisit(Kind.METHOD_DECL.getNodeName(), this::visitMethod);
         addVisit(Kind.RETURN_STMT.getNodeName(), this::visitReturn);
         addVisit(Kind.ASSIGN_STMT.getNodeName(), this::visitAssign);
-        addVisit(Kind.BINARY_EXPR.getNodeName(), this::visitBinaryExpr);
+        addVisit(Kind.ADDITION_EXPR.getNodeName(), this::visitBinaryExpr);
+        addVisit(Kind.SUBTRACTION_EXPR.getNodeName(), this::visitBinaryExpr);
+        addVisit(Kind.MULTIPLICATION_EXPR.getNodeName(), this::visitBinaryExpr);
+        addVisit(Kind.DIVISION_EXPR.getNodeName(), this::visitBinaryExpr);
+        addVisit(Kind.AND_EXPR.getNodeName(), this::visitBinaryExpr);
+        addVisit(Kind.LESS_EXPR.getNodeName(), this::visitBinaryExpr);
+        addVisit(Kind.EQUALS_EXPR.getNodeName(), this::visitBinaryExpr);
         addVisit(Kind.IF_STMT.getNodeName(), this::visitIf);
         addVisit(Kind.WHILE_STMT.getNodeName(), this::visitWhile);
         addVisit(Kind.ARRAY_ACCESS_EXPR.getNodeName(), this::visitArrayAccess);
@@ -36,6 +43,7 @@ public class TypeCheck extends AnalysisVisitor {
     public Void visit(JmmNode node, SymbolTable table) {
         this.symbolTable = table;
         this.typeUtils = new TypeUtils(table);
+        System.out.println(">> [DEBUG] Visiting node: " + node.getKind());
         return super.visit(node, table);
     }
 
@@ -45,15 +53,19 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
     private Void visitReturn(JmmNode retNode, SymbolTable table) {
+        if (currentMethod == null) return null;
         Type expected = table.getReturnType(currentMethod);
+
         if (retNode.getChildren().isEmpty()) {
             if (!expected.getName().equals("void")) {
-                addReport(newError(retNode, "Expected return of type '" + expected + "', got void."));
+                addReport(Report.newError(Stage.SEMANTIC, retNode.getLine(), retNode.getColumn(),
+                        "Expected return of type '" + expected + "', got void.", null));
             }
         } else {
             Type actual = inferType(retNode.getChild(0));
-            if (!typeUtils.isCompatible(expected, actual)) {
-                addReport(newError(retNode, "Return type mismatch: expected '" + expected + "', got '" + actual + "'"));
+            if (!actual.getName().equals("unknown") && !typeUtils.isCompatible(expected, actual)) {
+                addReport(Report.newError(Stage.SEMANTIC, retNode.getLine(), retNode.getColumn(),
+                        "Return type mismatch: expected '" + expected + "', got '" + actual + "'", null));
             }
         }
         return null;
@@ -66,16 +78,19 @@ public class TypeCheck extends AnalysisVisitor {
 
         if (assign.getChild(0).getKind().equals("ArrayLiteralExpr") &&
                 !typeUtils.isValidArrayLiteralAssignment(left, right)) {
-            addReport(newError(assign, "Array literal can only be assigned to int arrays, found: " + left));
+            addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
+                    "Array literal can only be assigned to int arrays, found: " + left, null));
         }
 
-        if (!typeUtils.isCompatible(left, right)) {
+        if (!right.getName().equals("unknown") && !typeUtils.isCompatible(left, right)) {
             if (right.getName().equals(symbolTable.getClassName())) {
                 if (!typeUtils.canAssignThisTo(left)) {
-                    addReport(newError(assign, "Cannot assign 'this' to variable '" + varName + "' of type '" + left + "'"));
+                    addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
+                            "Cannot assign 'this' to variable '" + varName + "' of type '" + left + "'", null));
                 }
             } else {
-                addReport(newError(assign, "Cannot assign '" + right + "' to variable '" + varName + "' of type '" + left + "'"));
+                addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
+                        "Cannot assign '" + right + "' to variable '" + varName + "' of type '" + left + "'", null));
             }
         }
 
@@ -85,41 +100,69 @@ public class TypeCheck extends AnalysisVisitor {
     private Void visitBinaryExpr(JmmNode expr, SymbolTable table) {
         Type left = inferType(expr.getChild(0));
         Type right = inferType(expr.getChild(1));
-        String op = expr.get("op");
+        String op = switch (expr.getKind()) {
+            case "AdditionExpr" -> "+";
+            case "SubtractionExpr" -> "-";
+            case "MultiplicationExpr" -> "*";
+            case "DivisionExpr" -> "/";
+            case "AndExpr" -> "&&";
+            case "LessExpr" -> "<";
+            case "EqualsExpr" -> "==";
+            default -> "unknown";
+        };
+
+
+        if (left.getName().equals("unknown") || right.getName().equals("unknown")) return null;
 
         switch (op) {
             case "+", "-", "*", "/" -> {
-                if (!TypeUtils.isInt(left) || !TypeUtils.isInt(right)) {
-                    addReport(newError(expr, "Arithmetic operation '" + op + "' requires int operands. Got: " + left + " and " + right));
+                if ((TypeUtils.isInt(left) && right.isArray()) || (TypeUtils.isInt(right) && left.isArray())) {
+                    addReport(Report.newError(Stage.SEMANTIC, expr.getLine(), expr.getColumn(),
+                            "Arithmetic operation '" + op + "' requires non-array int operands. Got: " + left + " and " + right, null));
                 }
             }
             case "&&" -> {
-                if (!TypeUtils.isBoolean(left) || !TypeUtils.isBoolean(right)) {
-                    addReport(newError(expr, "Logical AND requires boolean operands. Got: " + left + " and " + right));
+                if (!TypeUtils.isBoolean(left) || !TypeUtils.isBoolean(right) || left.isArray() || right.isArray()) {
+                    addReport(Report.newError(Stage.SEMANTIC, expr.getLine(), expr.getColumn(),
+                            "Logical AND '&&' requires boolean (non-array) operands. Got: " + left + " and " + right, null));
                 }
             }
             case "<" -> {
-                if (!TypeUtils.isInt(left) || !TypeUtils.isInt(right)) {
-                    addReport(newError(expr, "Comparison '<' requires int operands. Got: " + left + " and " + right));
+                if (!TypeUtils.isInt(left) || !TypeUtils.isInt(right) || left.isArray() || right.isArray()) {
+                    addReport(Report.newError(Stage.SEMANTIC, expr.getLine(), expr.getColumn(),
+                            "Comparison '<' requires non-array int operands. Got: " + left + " and " + right, null));
                 }
+            }
+            case "==" -> {
+                if (!typeUtils.isCompatible(left, right)) {
+                    addReport(Report.newError(Stage.SEMANTIC, expr.getLine(), expr.getColumn(),
+                            "Operator '==' used with incompatible types: " + left + " and " + right, null));
+                }
+            }
+            default -> {
+                addReport(Report.newError(Stage.SEMANTIC, expr.getLine(), expr.getColumn(),
+                        "Unknown binary operator '" + op + "'", null));
             }
         }
 
         return null;
     }
 
+
     private Void visitIf(JmmNode ifStmt, SymbolTable table) {
         Type condition = inferType(ifStmt.getChild(0));
-        if (!TypeUtils.isBoolean(condition)) {
-            addReport(newError(ifStmt, "Condition of if must be boolean, got: " + condition));
+        if (!condition.getName().equals("unknown") && !TypeUtils.isBoolean(condition)) {
+            addReport(Report.newError(Stage.SEMANTIC, ifStmt.getLine(), ifStmt.getColumn(),
+                    "Condition of if must be boolean, got: " + condition, null));
         }
         return null;
     }
 
     private Void visitWhile(JmmNode whileStmt, SymbolTable table) {
         Type condition = inferType(whileStmt.getChild(0));
-        if (!TypeUtils.isBoolean(condition)) {
-            addReport(newError(whileStmt, "Condition of while must be boolean, got: " + condition));
+        if (!condition.getName().equals("unknown") && !TypeUtils.isBoolean(condition)) {
+            addReport(Report.newError(Stage.SEMANTIC, whileStmt.getLine(), whileStmt.getColumn(),
+                    "Condition of while must be boolean, got: " + condition, null));
         }
         return null;
     }
@@ -127,11 +170,14 @@ public class TypeCheck extends AnalysisVisitor {
     private Void visitArrayAccess(JmmNode access, SymbolTable table) {
         Type arr = inferType(access.getChild(0));
         Type index = inferType(access.getChild(1));
-        if (!arr.isArray()) {
-            addReport(newError(access, "Trying to access a non-array variable: " + arr));
+
+        if (!arr.getName().equals("unknown") && !arr.isArray()) {
+            addReport(Report.newError(Stage.SEMANTIC, access.getLine(), access.getColumn(),
+                    "Trying to access a non-array variable: " + arr, null));
         }
-        if (!TypeUtils.isInt(index)) {
-            addReport(newError(access, "Array index must be of type int, got: " + index));
+        if (!index.getName().equals("unknown") && !TypeUtils.isInt(index)) {
+            addReport(Report.newError(Stage.SEMANTIC, access.getLine(), access.getColumn(),
+                    "Array index must be of type int, got: " + index, null));
         }
         return null;
     }
@@ -143,8 +189,9 @@ public class TypeCheck extends AnalysisVisitor {
         Type firstType = inferType(elements.get(0));
         for (JmmNode elem : elements) {
             Type elemType = inferType(elem);
-            if (!elemType.equals(firstType)) {
-                addReport(newError(array, "All elements in array literal must be of same type. Found: " + firstType + " and " + elemType));
+            if (!elemType.getName().equals("unknown") && !elemType.equals(firstType)) {
+                addReport(Report.newError(Stage.SEMANTIC, array.getLine(), array.getColumn(),
+                        "All elements in array literal must be of same type. Found: " + firstType + " and " + elemType, null));
                 break;
             }
         }
@@ -154,9 +201,7 @@ public class TypeCheck extends AnalysisVisitor {
     private Void visitMethodCall(JmmNode call, SymbolTable table) {
         String methodName = call.hasAttribute("methodName") ? call.get("methodName") : call.get("name");
 
-        if (!symbolTable.getMethods().contains(methodName)) {
-            return null;
-        }
+        if (!symbolTable.getMethods().contains(methodName)) return null;
 
         List<Symbol> params = symbolTable.getParameters(methodName);
         List<JmmNode> args = call.getChildren().stream()
@@ -166,22 +211,27 @@ public class TypeCheck extends AnalysisVisitor {
         boolean hasVararg = typeUtils.hasVarargs(methodName);
 
         for (int i = 0; i < args.size(); i++) {
+            Type actual = inferType(args.get(i));
+
+            if (actual.getName().equals("unknown")) continue;
+
             if (i < params.size() - (hasVararg ? 1 : 0)) {
                 Type expected = params.get(i).getType();
-                Type actual = inferType(args.get(i));
                 if (!typeUtils.isCompatible(expected, actual)) {
-                    addReport(newError(call, "Type mismatch in argument " + (i + 1) + " of method '" +
-                            methodName + "': expected " + expected + ", got " + actual));
+                    addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
+                            "Type mismatch in argument " + (i + 1) + " of method '" +
+                                    methodName + "': expected " + expected + ", got " + actual, null));
                 }
             } else if (hasVararg) {
-                Type actual = inferType(args.get(i));
                 Type expected = params.get(params.size() - 1).getType();
                 if (!typeUtils.isCompatible(expected, actual)) {
-                    addReport(newError(call, "Type mismatch in vararg argument " + (i + 1) + " of method '" +
-                            methodName + "': expected " + expected + ", got " + actual));
+                    addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
+                            "Type mismatch in vararg argument " + (i + 1) + " of method '" +
+                                    methodName + "': expected " + expected + ", got " + actual, null));
                 }
             } else {
-                addReport(newError(call, "Too many arguments for method '" + methodName + "'"));
+                addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
+                        "Too many arguments for method '" + methodName + "'", null));
             }
         }
 
@@ -192,10 +242,18 @@ public class TypeCheck extends AnalysisVisitor {
         return switch (node.getKind()) {
             case "IntegerLiteral" -> TypeUtils.newIntType();
             case "BooleanLiteral" -> TypeUtils.newBooleanType();
-            case "VarRefExpr" -> typeUtils.getVarType(node.get("name"), currentMethod);
+            case "VarRefExpr" -> {
+                String varName = node.get("name");
+                try {
+                    yield typeUtils.getVarType(varName, currentMethod);
+                } catch (RuntimeException e) {
+                    yield new Type("unknown", false);
+                }
+            }
             case "ThisExpr" -> {
                 if ("main".equals(currentMethod)) {
-                    addReport(newError(node, "'this' cannot be used in a static method like 'main'"));
+                    addReport(Report.newError(Stage.SEMANTIC, node.getLine(), node.getColumn(),
+                            "'this' cannot be used in a static method like 'main'", null));
                     yield new Type("unknown", false);
                 }
                 yield new Type(symbolTable.getClassName(), false);
@@ -204,14 +262,12 @@ public class TypeCheck extends AnalysisVisitor {
             case "NewObjectExpr" -> new Type(node.get("className"), false);
             case "ArrayAccessExpr" -> {
                 Type arr = inferType(node.getChild(0));
-                yield new Type(arr.getName(), false);
+                yield arr.isArray() ? new Type(arr.getName(), false) : new Type("unknown", false);
             }
             case "BinaryExpr" -> {
                 String op = node.get("op");
-                if (op.equals("&&") || op.equals("<") || op.equals("==")) {
-                    yield TypeUtils.newBooleanType();
-                }
-                yield TypeUtils.newIntType();
+                yield (op.equals("&&") || op.equals("<") || op.equals("==")) ?
+                        TypeUtils.newBooleanType() : TypeUtils.newIntType();
             }
             case "ArrayLiteralExpr" -> {
                 if (node.getChildren().isEmpty()) yield TypeUtils.newIntArrayType();
@@ -220,6 +276,7 @@ public class TypeCheck extends AnalysisVisitor {
             }
             case "MethodCallExpr", "LocalMethodCallExpr" -> {
                 String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
+                if (!symbolTable.getMethods().contains(method)) yield new Type("unknown", false);
                 yield symbolTable.getReturnType(method);
             }
             default -> new Type("unknown", false);

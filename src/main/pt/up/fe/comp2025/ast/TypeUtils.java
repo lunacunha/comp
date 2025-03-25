@@ -72,6 +72,7 @@ public class TypeUtils {
 
     // Compatibilidade entre tipos
     public boolean isCompatible(Type expected, Type actual) {
+
         if (expected.equals(actual)) return true;
 
         // Suporte para herança (this vs. super class)
