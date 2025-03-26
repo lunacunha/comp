@@ -50,7 +50,6 @@ public class TypeCheck extends AnalysisVisitor {
 
         String kind = node.getKind();
         if (!seenKinds.contains(kind)) {
-            System.out.println(">> [KIND] Found new kind: " + kind);
             seenKinds.add(kind);
         }
 
@@ -71,9 +70,34 @@ public class TypeCheck extends AnalysisVisitor {
 
     private Void visitMethod(JmmNode method, SymbolTable table) {
         currentMethod = method.get("name");
-        System.out.println(">> [DEBUG] Current method: " + currentMethod + " @ line: " + method.getLine());
+
+        // Verificar regras de varargs
+        List<Symbol> parameters = table.getParameters(currentMethod);
+        boolean foundVararg = false;
+
+        for (int i = 0; i < parameters.size(); i++) {
+            Type paramType = parameters.get(i).getType();
+
+            if (paramType.isArray()) {
+                if (foundVararg) {
+                    addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
+                            "Only one vararg parameter allowed in method '" + currentMethod + "'", null));
+                    break;
+                }
+
+                if (i != parameters.size() - 1) {
+                    addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
+                            "Vararg parameter must be the last in method '" + currentMethod + "'", null));
+                    break;
+                }
+
+                foundVararg = true;
+            }
+        }
+
         return null;
     }
+
 
     private Void visitReturn(JmmNode retNode, SymbolTable table) {
         if (currentMethod == null) {
@@ -95,19 +119,16 @@ public class TypeCheck extends AnalysisVisitor {
         String varName = assign.get("name");
         Type left = typeUtils.getVarType(varName, currentMethod);
         Type right = inferType(assign.getChild(0));
-        System.out.println(">> [DEBUG] Assigning to var '" + varName + "': left = " + left + ", right = " + right + ", rightKind = " + assign.getChild(0).getKind());
+        System.out.println(">> [DEBUG] Assignment: left = " + left + ", right = " + right);
 
-
-        System.out.println(">> [DEBUG] Checking assignment of ArrayInit");
 
         if (assign.getChild(0).getKind().equals("ArrayInit")
                 && !typeUtils.isValidArrayLiteralAssignment(left, right)) {
-
-            System.out.println(">> [DEBUG] Invalid array literal assignment: left=" + left + ", right=" + right);
-
             addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
                     "Array literal can only be assigned to int arrays, found: " + left, null));
         }
+
+        System.out.println(">> [DEBUG] Assign: left = " + left + ", right = " + right);
 
         if (!right.getName().equals("unknown") && !typeUtils.isCompatible(left, right)) {
             if (right.getName().equals(symbolTable.getClassName())) {
@@ -143,11 +164,12 @@ public class TypeCheck extends AnalysisVisitor {
 
         switch (op) {
             case "+", "-", "*", "/" -> {
-                if ((TypeUtils.isInt(left) && right.isArray()) || (TypeUtils.isInt(right) && left.isArray())) {
+                if (!TypeUtils.isInt(left) || !TypeUtils.isInt(right) || left.isArray() || right.isArray()) {
                     addReport(Report.newError(Stage.SEMANTIC, expr.getLine(), expr.getColumn(),
-                            "Arithmetic operation '" + op + "' requires non-array int operands. Got: " + left + " and " + right, null));
+                            "Arithmetic operation '" + op + "' requires int operands. Got: " + left + " and " + right, null));
                 }
             }
+
             case "&&" -> {
                 if (!TypeUtils.isBoolean(left) || !TypeUtils.isBoolean(right) || left.isArray() || right.isArray()) {
                     addReport(Report.newError(Stage.SEMANTIC, expr.getLine(), expr.getColumn(),
@@ -177,10 +199,8 @@ public class TypeCheck extends AnalysisVisitor {
 
 
     private Void visitIf(JmmNode ifStmt, SymbolTable table) {
-        System.out.println(">> [DEBUG] Entered visitIf at line: " + ifStmt.getLine());
 
         Type condition = inferType(ifStmt.getChild(0));
-        System.out.println(">> [DEBUG] If condition type: " + condition);
 
         if (!condition.getName().equals("unknown") && !TypeUtils.isBoolean(condition)) {
             addReport(Report.newError(Stage.SEMANTIC, ifStmt.getLine(), ifStmt.getColumn(),
@@ -214,8 +234,6 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
     private Void visitArrayLiteral(JmmNode array, SymbolTable table) {
-        System.out.println(">> [DEBUG] Entered visitArrayLiteral at line " + array.getLine());
-
         List<JmmNode> elements = array.getChildren();
         if (elements.isEmpty()) {
             return null;
@@ -236,7 +254,15 @@ public class TypeCheck extends AnalysisVisitor {
     private Void visitMethodCall(JmmNode call, SymbolTable table) {
         String methodName = call.hasAttribute("methodName") ? call.get("methodName") : call.get("name");
 
-        if (!symbolTable.getMethods().contains(methodName)) return null;
+        if (!symbolTable.getMethods().contains(methodName)) {
+            if (symbolTable.getSuper() == null || symbolTable.getSuper().isEmpty()) {
+                addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
+                        "Method '" + methodName + "' is not declared in class '" + symbolTable.getClassName() + "' or its superclass.", null));
+            } else {
+                System.out.println(">> [DEBUG] Superclass exists. Assuming method exists.");
+            }
+            return null;
+        }
 
         List<Symbol> params = symbolTable.getParameters(methodName);
         List<JmmNode> args = call.getChildren().stream()
@@ -246,6 +272,7 @@ public class TypeCheck extends AnalysisVisitor {
         boolean hasVararg = typeUtils.hasVarargs(methodName);
 
         for (int i = 0; i < args.size(); i++) {
+
             Type actual = inferType(args.get(i));
 
             if (actual.getName().equals("unknown")) continue;
@@ -253,10 +280,16 @@ public class TypeCheck extends AnalysisVisitor {
             if (i < params.size() - (hasVararg ? 1 : 0)) {
                 Type expected = params.get(i).getType();
                 if (!typeUtils.isCompatible(expected, actual)) {
+                    if (expected.isArray() && !actual.isArray() && expected.getName().equals(actual.getName())) {
+                        continue;
+                    }
+
                     addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
-                            "Type mismatch in argument " + (i + 1) + " of method '" +
-                                    methodName + "': expected " + expected + ", got " + actual, null));
+                            "Type mismatch in " + (hasVararg && i >= params.size() - 1 ? "vararg " : "") +
+                                    "argument " + (i + 1) + " of method '" + methodName +
+                                    "': expected " + expected + ", got " + actual, null));
                 }
+
             } else if (hasVararg) {
                 Type expected = params.get(params.size() - 1).getType();
                 if (!typeUtils.isCompatible(expected, actual)) {
@@ -274,17 +307,28 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
     private Type inferType(JmmNode node) {
+
         return switch (node.getKind()) {
-            case "IntegerLiteral" -> TypeUtils.newIntType();
+            case "IntegerLiteral" -> {
+                System.out.println(">> [inferType] IntegerLiteral");
+                yield TypeUtils.newIntType();
+            }
             case "BooleanLiteral" -> TypeUtils.newBooleanType();
             case "VarRefExpr" -> {
                 String varName = node.get("name");
+
+                if (varName.equals("true") || varName.equals("false")) {
+                    yield TypeUtils.newBooleanType();
+                }
+
                 try {
                     yield typeUtils.getVarType(varName, currentMethod);
                 } catch (RuntimeException e) {
                     yield new Type("unknown", false);
                 }
             }
+
+
             case "ThisExpr" -> {
                 if ("main".equals(currentMethod)) {
                     addReport(Report.newError(Stage.SEMANTIC, node.getLine(), node.getColumn(),

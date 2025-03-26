@@ -72,18 +72,23 @@ public class TypeUtils {
 
     // Compatibilidade entre tipos
     public boolean isCompatible(Type expected, Type actual) {
-
         if (expected.equals(actual)) return true;
 
-        // Suporte para herança (this vs. super class)
+        // Suporte para herança
         if (!isPrimitive(expected.getName()) && table.getSuper() != null) {
             if (actual.getName().equals(table.getClassName()) && expected.getName().equals(table.getSuper())) {
                 return true;
             }
         }
 
+        // Adicional: impedir int → boolean e vice-versa
+        if (isPrimitive(expected.getName()) && isPrimitive(actual.getName())) {
+            return expected.getName().equals(actual.getName());
+        }
+
         return false;
     }
+
 
     // Verifica se this pode ser atribuído à variável de tipo target
     public boolean canAssignThisTo(Type targetType) {

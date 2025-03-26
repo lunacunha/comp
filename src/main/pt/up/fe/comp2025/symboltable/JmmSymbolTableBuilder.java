@@ -184,6 +184,10 @@ public class JmmSymbolTableBuilder {
                     foundVararg = true;
                 }
             }
+            System.out.println(">> [DEBUG] Method: " + methodName);
+            for (Symbol s : paramList) {
+                System.out.println("   Param: " + s.getName() + ", type = " + s.getType());
+            }
 
             map.put(methodName, paramList);
         }
