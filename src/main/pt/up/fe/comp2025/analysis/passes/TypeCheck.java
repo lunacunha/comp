@@ -23,23 +23,32 @@ public class TypeCheck extends AnalysisVisitor {
 
     @Override
     public void buildVisitor() {
-        addVisit(Kind.METHOD_DECL.getNodeName(), this::visitMethod);
+        addVisit("MethodDecl", this::visitMethod);
         addVisit("ReturnStatement", this::visitReturn);
-        addVisit(Kind.ASSIGN_STMT.getNodeName(), this::visitAssign);
-        addVisit(Kind.ADDITION_EXPR.getNodeName(), this::visitBinaryExpr);
-        addVisit(Kind.SUBTRACTION_EXPR.getNodeName(), this::visitBinaryExpr);
-        addVisit(Kind.MULTIPLICATION_EXPR.getNodeName(), this::visitBinaryExpr);
-        addVisit(Kind.DIVISION_EXPR.getNodeName(), this::visitBinaryExpr);
-        addVisit(Kind.AND_EXPR.getNodeName(), this::visitBinaryExpr);
-        addVisit(Kind.LESS_EXPR.getNodeName(), this::visitBinaryExpr);
-        addVisit(Kind.EQUALS_EXPR.getNodeName(), this::visitBinaryExpr);
+        addVisit("AssignStatement", this::visitAssign); // cuidado com "AssingStatement" se estiver errado
+
+        // Binary exprs
+        addVisit("AdditionExpr", this::visitBinaryExpr);
+        addVisit("SubtractionExpr", this::visitBinaryExpr);
+        addVisit("MultiplicationExpr", this::visitBinaryExpr);
+        addVisit("DivisionExpr", this::visitBinaryExpr);
+        addVisit("AndExpr", this::visitBinaryExpr);
+        addVisit("LessThanExpr", this::visitBinaryExpr);
+        addVisit("EqualsExpr", this::visitBinaryExpr);
+
+        // Control flow
         addVisit("IfStatement", this::visitIf);
         addVisit("WhileStatement", this::visitWhile); // <-- CORRETO
-        addVisit(Kind.ARRAY_ACCESS_EXPR.getNodeName(), this::visitArrayAccess);
-        addVisit(Kind.ARRAY_LITERAL_EXPR.getNodeName(), this::visitArrayLiteral);
-        addVisit(Kind.METHOD_CALL_EXPR.getNodeName(), this::visitMethodCall);
-        addVisit(Kind.LOCAL_METHOD_CALL_EXPR.getNodeName(), this::visitMethodCall);
+
+        // Arrays
+        addVisit("ArrayAccess", this::visitArrayAccess);
+        addVisit("ArrayInit", this::visitArrayLiteral);
+
+        // Method calls
+        addVisit("MethodCall", this::visitMethodCall);
+        addVisit("LocalMethodCall", this::visitMethodCall);
     }
+
 
     private final Set<String> seenKinds = new HashSet<>();
 
