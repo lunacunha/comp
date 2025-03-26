@@ -34,7 +34,7 @@ public class TypeCheck extends AnalysisVisitor {
         addVisit(Kind.LESS_EXPR.getNodeName(), this::visitBinaryExpr);
         addVisit(Kind.EQUALS_EXPR.getNodeName(), this::visitBinaryExpr);
         addVisit("IfStatement", this::visitIf);
-        addVisit(Kind.WHILE_STMT.getNodeName(), this::visitWhile);
+        addVisit("WhileStatement", this::visitWhile); // <-- CORRETO
         addVisit(Kind.ARRAY_ACCESS_EXPR.getNodeName(), this::visitArrayAccess);
         addVisit(Kind.ARRAY_LITERAL_EXPR.getNodeName(), this::visitArrayLiteral);
         addVisit(Kind.METHOD_CALL_EXPR.getNodeName(), this::visitMethodCall);
@@ -202,21 +202,31 @@ public class TypeCheck extends AnalysisVisitor {
 
         Type condition = inferType(ifStmt.getChild(0));
 
-        if (!condition.getName().equals("unknown") && !TypeUtils.isBoolean(condition)) {
+        if (!condition.getName().equals("unknown") &&
+                (!TypeUtils.isBoolean(condition) || condition.isArray())) {
             addReport(Report.newError(Stage.SEMANTIC, ifStmt.getLine(), ifStmt.getColumn(),
-                    "Condition of if must be boolean, got: " + condition, null));
+                    "Condition of if must be a non-array boolean, got: " + condition, null));
         }
+
         return null;
     }
 
     private Void visitWhile(JmmNode whileStmt, SymbolTable table) {
         Type condition = inferType(whileStmt.getChild(0));
-        if (!condition.getName().equals("unknown") && !TypeUtils.isBoolean(condition)) {
+
+        System.out.println(">> [DEBUG] While condition type: " + condition);
+
+        if (!condition.getName().equals("unknown") &&
+                (!TypeUtils.isBoolean(condition) || condition.isArray())) {
+
             addReport(Report.newError(Stage.SEMANTIC, whileStmt.getLine(), whileStmt.getColumn(),
-                    "Condition of while must be boolean, got: " + condition, null));
+                    "Condition of while must be a non-array boolean, got: " + condition, null));
         }
+
         return null;
     }
+
+
 
     private Void visitArrayAccess(JmmNode access, SymbolTable table) {
         Type arr = inferType(access.getChild(0));
@@ -315,7 +325,12 @@ public class TypeCheck extends AnalysisVisitor {
             }
             case "BooleanLiteral" -> TypeUtils.newBooleanType();
             case "VarRefExpr" -> {
+
                 String varName = node.get("name");
+
+                System.out.println(">> [DEBUG] VarRefExpr: " + varName);
+                System.out.println(">> [DEBUG] Type of '" + varName + "': " + typeUtils.getVarType(varName, currentMethod));
+
 
                 if (varName.equals("true") || varName.equals("false")) {
                     yield TypeUtils.newBooleanType();
@@ -326,6 +341,7 @@ public class TypeCheck extends AnalysisVisitor {
                 } catch (RuntimeException e) {
                     yield new Type("unknown", false);
                 }
+
             }
 
 
