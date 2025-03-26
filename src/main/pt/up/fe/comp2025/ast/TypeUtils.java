@@ -50,6 +50,8 @@ public class TypeUtils {
                 return new Type("int", true); // Tratado como int[]
             case "VarArgBool":
                 return new Type("boolean", true);
+            case "VarargParam":  // Novo caso para varargs (int...)
+                return new Type("int", true);
             default:
                 return new Type("unknown", false);
         }
@@ -63,6 +65,10 @@ public class TypeUtils {
     // Verifica se o tipo é boolean (não array)
     public static boolean isBoolean(Type t) {
         return t.getName().equals("boolean") && !t.isArray();
+    }
+
+    public static boolean isValidVararg(Type type) {
+        return type.isArray() && type.getName().equals("int");
     }
 
     // Verifica se o nome do tipo é primitivo

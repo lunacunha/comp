@@ -79,26 +79,26 @@ public class TypeCheck extends AnalysisVisitor {
 
     private Void visitMethod(JmmNode method, SymbolTable table) {
         currentMethod = method.get("name");
-
         List<Symbol> parameters = table.getParameters(currentMethod);
-        boolean foundVararg = false;
 
-        for (int i = 0; i < parameters.size(); i++) {
+        // Verificação de varargs
+        boolean foundVararg = false;
+        for(int i = 0; i < parameters.size(); i++) {
             Symbol param = parameters.get(i);
             Type paramType = param.getType();
 
-            // Verificar se é vararg (int[])
-            if (isVararg(paramType)) {
-                // Verificar posição
-                if (i != parameters.size() - 1) {
+            // Verificar se é vararg
+            if (TypeUtils.isValidVararg(paramType)) {
+                // 1. Deve ser único
+                if(foundVararg) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
-                            "Vararg parameter must be last in method '" + currentMethod + "'", null));
+                            "Multiple varargs parameters in method '" + currentMethod + "'", null));
                 }
 
-                // Verificar duplicados
-                if (foundVararg) {
+                // 2. Deve ser último
+                if(i != parameters.size() - 1) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
-                            "Method '" + currentMethod + "' cannot have multiple varargs", null));
+                            "Vararg parameter must be last in method '" + currentMethod + "'", null));
                 }
 
                 foundVararg = true;
@@ -136,10 +136,12 @@ public class TypeCheck extends AnalysisVisitor {
         System.out.println(">> [DEBUG] Assignment: left = " + left + ", right = " + right);
 
 
-        if (assign.getChild(0).getKind().equals("ArrayInit")
-                && !typeUtils.isValidArrayLiteralAssignment(left, right)) {
-            addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
-                    "Array literal can only be assigned to int arrays, found: " + left, null));
+        // Verificação especial para array literals
+        if (assign.getChild(0).getKind().equals("ArrayInit")) {
+            if (!left.isArray() || !left.getName().equals("int")) {
+                addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
+                        "Array initializer can only be assigned to int[] variables", null));
+            }
         }
 
         System.out.println(">> [DEBUG] Assign: left = " + left + ", right = " + right);
@@ -328,17 +330,18 @@ public class TypeCheck extends AnalysisVisitor {
                 }
 
             } else if (hasVararg) {
-                Type expected = params.get(params.size() - 1).getType();
-                if (!typeUtils.isCompatible(expected, actual)) {
-                    // Permitir int -> int[]
-                    if (expected.getName().equals("int") && expected.isArray() &&
-                            actual.getName().equals("int") && !actual.isArray()) {
-                        continue;
-                    }
+                Symbol varargParam = params.get(params.size() - 1);
+                int fixedParams = params.size() - 1;
 
-                    addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
-                            "Type mismatch in vararg argument " + (i + 1) + " of method '" +
-                                    methodName + "': expected " + expected + ", got " + actual, null));
+                // Verifica argumentos varargs
+                for (int j = fixedParams; j < args.size(); j++) {
+                    Type argType = inferType(args.get(j));
+
+                    // Aceita int ou int[]
+                    if (!argType.getName().equals("int") || (argType.isArray() && j > fixedParams)) {
+                        addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
+                                "Vararg argument " + (j + 1) + " must be int, found: " + argType, null));
+                    }
                 }
 
             } else {

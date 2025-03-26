@@ -92,15 +92,12 @@ public class JmmSymbolTableBuilder {
             List<Symbol> parameters = new ArrayList<>();
 
             for (JmmNode param : method.getChildren(Kind.NORMAL_PARAM.getNodeName())) {
-                // Determinar tipo do parâmetro
                 Type paramType;
-                if (param.getKind().equals("VarargParam")) { // Varargs: int... → int[]
+
+                if (param.getKind().equals("VarargParam")) { // int... → int[]
                     paramType = new Type("int", true);
                 } else {
-                    var typeNode = param.getChildren().stream()
-                            .filter(child -> child.getKind().endsWith("Type"))
-                            .findFirst()
-                            .orElseThrow();
+                    JmmNode typeNode = param.getChildren().get(0); // Assume que sempre existe
                     paramType = convertType(typeNode);
                 }
 
