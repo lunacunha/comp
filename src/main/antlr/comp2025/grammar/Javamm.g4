@@ -80,8 +80,8 @@ methodDecl
     ;
 
 paramDecl
-    : type name=ID
-    | type '...' name=ID
+    : type name=ID #NormalParam
+    | INT '...' name=ID #VarargParam
     ;
 
 paramList

@@ -25,7 +25,8 @@ public enum Kind {
     METHOD_DECL,
     NORMAL_METHOD_DECL, // added
     MAIN_METHOD_DECL, // added
-    PARAM_DECL, // added
+    NORMAL_PARAM, // added
+    VARARG_PARAM,
     PARAM_LIST, // added
     STMT,
     EXPR_STMT, // added

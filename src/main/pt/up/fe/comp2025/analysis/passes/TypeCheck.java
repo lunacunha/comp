@@ -80,24 +80,25 @@ public class TypeCheck extends AnalysisVisitor {
     private Void visitMethod(JmmNode method, SymbolTable table) {
         currentMethod = method.get("name");
 
-        // Verificar regras de varargs
         List<Symbol> parameters = table.getParameters(currentMethod);
         boolean foundVararg = false;
 
         for (int i = 0; i < parameters.size(); i++) {
-            Type paramType = parameters.get(i).getType();
+            Symbol param = parameters.get(i);
+            Type paramType = param.getType();
 
-            if (paramType.isArray()) {
-                if (foundVararg) {
-                    addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
-                            "Only one vararg parameter allowed in method '" + currentMethod + "'", null));
-                    break;
-                }
-
+            // Verificar se é vararg (int[])
+            if (isVararg(paramType)) {
+                // Verificar posição
                 if (i != parameters.size() - 1) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
-                            "Vararg parameter must be the last in method '" + currentMethod + "'", null));
-                    break;
+                            "Vararg parameter must be last in method '" + currentMethod + "'", null));
+                }
+
+                // Verificar duplicados
+                if (foundVararg) {
+                    addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
+                            "Method '" + currentMethod + "' cannot have multiple varargs", null));
                 }
 
                 foundVararg = true;
@@ -105,6 +106,10 @@ public class TypeCheck extends AnalysisVisitor {
         }
 
         return null;
+    }
+
+    private boolean isVararg(Type type) {
+        return type.isArray() && type.getName().equals("int");
     }
 
 
