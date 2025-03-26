@@ -140,6 +140,16 @@ public class TypeCheck extends AnalysisVisitor {
         System.out.println(">> [DEBUG] Assign: left = " + left + ", right = " + right);
 
         if (!right.getName().equals("unknown") && !typeUtils.isCompatible(left, right)) {
+
+            // Caso especial: tipos diferentes, mas ambos vêm de imports → assume compatibilidade
+            boolean leftImported = symbolTable.getImports().stream().anyMatch(i -> i.endsWith(left.getName()));
+            boolean rightImported = symbolTable.getImports().stream().anyMatch(i -> i.endsWith(right.getName()));
+            if (leftImported && rightImported) {
+                System.out.println(">> [DEBUG] Assuming compatibility between imported types '" + left + "' and '" + right + "'");
+                return null;
+            }
+
+            // Caso especial: 'this'
             if (right.getName().equals(symbolTable.getClassName())) {
                 if (!typeUtils.canAssignThisTo(left)) {
                     addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
@@ -150,6 +160,7 @@ public class TypeCheck extends AnalysisVisitor {
                         "Cannot assign '" + right + "' to variable '" + varName + "' of type '" + left + "'", null));
             }
         }
+
 
         return null;
     }
