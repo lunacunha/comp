@@ -25,6 +25,11 @@ public class UndeclaredVariable extends AnalysisVisitor {
     private Void visitVarRefExpr(JmmNode varRef, SymbolTable table) {
         String name = varRef.get("name");
 
+        // LITERALS não são variáveis
+        if (name.equals("true") || name.equals("false")) {
+            return null;
+        }
+
         boolean declared = false;
         if (table.getParameters(currentMethod).stream().anyMatch(p -> p.getName().equals(name))) {
             declared = true;
@@ -41,4 +46,5 @@ public class UndeclaredVariable extends AnalysisVisitor {
 
         return null;
     }
+
 }

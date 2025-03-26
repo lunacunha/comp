@@ -284,16 +284,25 @@ public class TypeCheck extends AnalysisVisitor {
     private Void visitMethodCall(JmmNode call, SymbolTable table) {
         String methodName = call.hasAttribute("methodName") ? call.get("methodName") : call.get("name");
 
-        if (!symbolTable.getMethods().contains(methodName)) {
-            if (symbolTable.getSuper() == null || symbolTable.getSuper().isEmpty()) {
-                addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
-                        "Method '" + methodName + "' is not declared in class '" + symbolTable.getClassName() + "' or its superclass.", null));
-            } else {
-                System.out.println(">> [DEBUG] Superclass exists. Assuming method exists.");
-            }
+        boolean localMethod = symbolTable.getMethods().contains(methodName);
+        boolean hasSuper = symbolTable.getSuper() != null && !symbolTable.getSuper().isEmpty();
+        boolean hasImports = !symbolTable.getImports().isEmpty();
+
+        // Se não existir localmente e não houver super nem imports → erro
+        if (!localMethod && !hasSuper && !hasImports) {
+            addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
+                    "Method '" + methodName + "' is not declared in class '" +
+                            symbolTable.getClassName() + "' or its superclass.", null));
             return null;
         }
 
+        // Se não existir localmente mas há super/imports → assume-se correto
+        if (!localMethod) {
+            System.out.println(">> [DEBUG] Method '" + methodName + "' assumed valid due to imports or inheritance.");
+            return null;
+        }
+
+        // Verificação normal dos argumentos
         List<Symbol> params = symbolTable.getParameters(methodName);
         List<JmmNode> args = call.getChildren().stream()
                 .filter(child -> !child.getKind().equals("MethodName"))
@@ -302,31 +311,31 @@ public class TypeCheck extends AnalysisVisitor {
         boolean hasVararg = typeUtils.hasVarargs(methodName);
 
         for (int i = 0; i < args.size(); i++) {
-
             Type actual = inferType(args.get(i));
-
             if (actual.getName().equals("unknown")) continue;
 
             if (i < params.size() - (hasVararg ? 1 : 0)) {
                 Type expected = params.get(i).getType();
                 if (!typeUtils.isCompatible(expected, actual)) {
-                    if (expected.isArray() && !actual.isArray() && expected.getName().equals(actual.getName())) {
-                        continue;
-                    }
-
                     addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
-                            "Type mismatch in " + (hasVararg && i >= params.size() - 1 ? "vararg " : "") +
-                                    "argument " + (i + 1) + " of method '" + methodName +
+                            "Type mismatch in argument " + (i + 1) + " of method '" + methodName +
                                     "': expected " + expected + ", got " + actual, null));
                 }
 
             } else if (hasVararg) {
                 Type expected = params.get(params.size() - 1).getType();
                 if (!typeUtils.isCompatible(expected, actual)) {
+                    // Permitir int -> int[]
+                    if (expected.getName().equals("int") && expected.isArray() &&
+                            actual.getName().equals("int") && !actual.isArray()) {
+                        continue;
+                    }
+
                     addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
                             "Type mismatch in vararg argument " + (i + 1) + " of method '" +
                                     methodName + "': expected " + expected + ", got " + actual, null));
                 }
+
             } else {
                 addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
                         "Too many arguments for method '" + methodName + "'", null));
@@ -336,7 +345,9 @@ public class TypeCheck extends AnalysisVisitor {
         return null;
     }
 
+
     private Type inferType(JmmNode node) {
+        System.out.println(">> [inferType] Node kind = " + node.getKind());
 
         return switch (node.getKind()) {
             case "IntegerLiteral" -> {
@@ -345,13 +356,14 @@ public class TypeCheck extends AnalysisVisitor {
             }
             case "BooleanLiteral" -> TypeUtils.newBooleanType();
             case "VarRefExpr" -> {
-
                 String varName = node.get("name");
 
-                System.out.println(">> [DEBUG] VarRefExpr: " + varName);
-                System.out.println(">> [DEBUG] Type of '" + varName + "': " + typeUtils.getVarType(varName, currentMethod));
+                if (symbolTable.getMethods().contains(varName)) {
+                    // Isto não é uma variável, é o nome de um método
+                    yield new Type("unknown", false); // ignora
+                }
 
-
+                // Lida com literais booleanos
                 if (varName.equals("true") || varName.equals("false")) {
                     yield TypeUtils.newBooleanType();
                 }
@@ -361,8 +373,9 @@ public class TypeCheck extends AnalysisVisitor {
                 } catch (RuntimeException e) {
                     yield new Type("unknown", false);
                 }
-
             }
+
+
 
 
             case "ThisExpr" -> {
@@ -393,11 +406,15 @@ public class TypeCheck extends AnalysisVisitor {
                 yield new Type(elemType.getName(), true);
             }
 
+            case "Varargs", "VarArg", "VarArgInt" -> new Type("int", true);
+            case "VarArgBool" -> new Type("boolean", true);
+
             case "MethodCall", "LocalMethodCall" -> {
                 String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
                 if (!symbolTable.getMethods().contains(method)) yield new Type("unknown", false);
                 yield symbolTable.getReturnType(method);
             }
+
             default -> new Type("unknown", false);
         };
     }
