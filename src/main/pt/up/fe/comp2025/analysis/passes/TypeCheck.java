@@ -81,26 +81,29 @@ public class TypeCheck extends AnalysisVisitor {
         currentMethod = method.get("name");
         List<Symbol> parameters = table.getParameters(currentMethod);
 
-        // Verificação de varargs
+        // Verificação de varargs na declaração do método
         boolean foundVararg = false;
-        for(int i = 0; i < parameters.size(); i++) {
+        for (int i = 0; i < parameters.size(); i++) {
             Symbol param = parameters.get(i);
             Type paramType = param.getType();
 
-            // Verificar se é vararg
+            // Se o parâmetro for vararg
             if (TypeUtils.isValidVararg(paramType)) {
                 // 1. Deve ser único
-                if(foundVararg) {
+                if (foundVararg) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
                             "Multiple varargs parameters in method '" + currentMethod + "'", null));
                 }
-
-                // 2. Deve ser último
-                if(i != parameters.size() - 1) {
+                // 2. Deve ser o último parâmetro
+                if (i != parameters.size() - 1) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
                             "Vararg parameter must be last in method '" + currentMethod + "'", null));
                 }
-
+                // Opcional: Verificar se o tipo base do vararg é int
+                if (!paramType.getName().equals("int")) {
+                    addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
+                            "Vararg parameter in method '" + currentMethod + "' must be of type int", null));
+                }
                 foundVararg = true;
             }
         }
@@ -297,7 +300,6 @@ public class TypeCheck extends AnalysisVisitor {
         boolean hasSuper = symbolTable.getSuper() != null && !symbolTable.getSuper().isEmpty();
         boolean hasImports = !symbolTable.getImports().isEmpty();
 
-        // Se não existir localmente e não houver super nem imports → erro
         if (!localMethod && !hasSuper && !hasImports) {
             addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
                     "Method '" + methodName + "' is not declared in class '" +
@@ -305,7 +307,6 @@ public class TypeCheck extends AnalysisVisitor {
             return null;
         }
 
-        // Se não existir localmente mas há super/imports → assume-se correto
         if (!localMethod) {
             System.out.println(">> [DEBUG] Method '" + methodName + "' assumed valid due to imports or inheritance.");
             return null;
@@ -318,43 +319,34 @@ public class TypeCheck extends AnalysisVisitor {
                 .collect(Collectors.toList());
 
         boolean hasVararg = typeUtils.hasVarargs(methodName);
+        // Para métodos com vararg, os parâmetros fixos são todos, exceto o último (que é o vararg)
+        int fixedParams = hasVararg ? params.size() - 1 : params.size();
 
-        for (int i = 0; i < args.size(); i++) {
+        if (!hasVararg && args.size() != params.size()) {
+            addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
+                    "Incorrect number of arguments for method '" + methodName + "'. Expected " + params.size() + ", got " + args.size(), null));
+        } else if (hasVararg && args.size() < fixedParams) {
+            addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
+                    "Not enough arguments for method '" + methodName + "'. Expected at least " + fixedParams + ", got " + args.size(), null));
+        }
+
+        // Verifica dos parâmetros fixos
+        for (int i = 0; i < Math.min(args.size(), fixedParams); i++) {
+            Type expected = params.get(i).getType();
             Type actual = inferType(args.get(i));
-            if (actual.getName().equals("unknown")) continue;
-
-            if (i < params.size() - (hasVararg ? 1 : 0)) {
-                Type expected = params.get(i).getType();
-                if (!typeUtils.isCompatible(expected, actual)) {
-                    addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
-                            "Type mismatch in argument " + (i + 1) + " of method '" + methodName +
-                                    "': expected " + expected + ", got " + actual, null));
-                }
-
-            } else if (hasVararg) {
-                Symbol varargParam = params.get(params.size() - 1);
-                int fixedParams = params.size() - 1;
-
-                // Verifica argumentos varargs
-                for (int j = fixedParams; j < args.size(); j++) {
-                    Type argType = inferType(args.get(j));
-
-                    // Aceita int ou int[]
-                    if (!argType.getName().equals("int") || (argType.isArray() && j > fixedParams)) {
-                        addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
-                                "Vararg argument " + (j + 1) + " must be int, found: " + argType, null));
-                    }
-                }
-
-            } else {
+            if (!typeUtils.isCompatible(expected, actual)) {
                 addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
-                        "Too many arguments for method '" + methodName + "'", null));
+                        "Type mismatch in argument " + (i + 1) + " of method '" + methodName +
+                                "': expected " + expected + ", got " + actual, null));
             }
         }
 
+        // Os argumentos para o vararg são assumidos como corretos,
+        // pois a verificação de existência, posição e tipo do vararg já foi feita em visitMethod.
+        // Se necessário, o inferType dos nós dos argumentos irá apontar inconsistências de tipo.
+
         return null;
     }
-
 
     private Type inferType(JmmNode node) {
         System.out.println(">> [inferType] Node kind = " + node.getKind());

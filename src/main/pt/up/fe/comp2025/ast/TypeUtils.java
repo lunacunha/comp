@@ -47,10 +47,8 @@ public class TypeUtils {
             case "ClassType":
                 return new Type(typeNode.get("name"), false);
             case "VarArgInt":
-                return new Type("int", true); // Tratado como int[]
-            case "VarArgBool":
-                return new Type("boolean", true);
-            case "VarargParam":  // Novo caso para varargs (int...)
+                return new Type("int", true);
+            case "VarargParam":
                 return new Type("int", true);
             default:
                 return new Type("unknown", false);

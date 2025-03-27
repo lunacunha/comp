@@ -127,8 +127,10 @@ public class JmmSymbolTableBuilder {
                 if (param.getKind().equals("VarargParam")) { // int... → int[]
                     paramType = new Type("int", true);
                 } else {
-                    JmmNode typeNode = param.getChildren().get(0); // Assume que sempre existe
+                    JmmNode typeNode = param.getChildren().get(0);
                     paramType = convertType(typeNode);
+                    System.out.println("PARAM TYPE IS " + paramType);
+
                 }
 
                 parameters.add(new Symbol(paramType, param.get("name")));

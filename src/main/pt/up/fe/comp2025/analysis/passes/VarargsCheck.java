@@ -44,9 +44,9 @@ public class VarargsCheck extends AnalysisVisitor {
                 foundVararg = true;
 
                 // Ensure vararg type is int... or boolean...
-                if (!paramType.getName().equals("int...") && !paramType.getName().equals("boolean...")) {
+                if (!paramType.getName().equals("int...")) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
-                            "Vararg parameter must be of type int... or boolean...", null));
+                            "Vararg parameter must be of type int", null));
                 }
             }
         }
