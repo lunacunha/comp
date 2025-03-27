@@ -37,12 +37,42 @@ public class JmmSymbolTableBuilder {
     }
 
     private List<String> buildImports(JmmNode root) {
-        return root.getChildren(Kind.IMPORT_DECL.getNodeName()).stream()
-                .map(importDecl -> importDecl.getChildren("ImportPart").stream()
-                        .map(node -> node.get("name"))
-                        .collect(Collectors.joining(".")))
-                .collect(Collectors.toList());
+        List<String> imports = new ArrayList<>();
+
+        for (JmmNode importDecl : root.getChildren(Kind.IMPORT_DECL.getNodeName())) {
+            System.out.println("IMPORT: Processing importDecl node: " + importDecl);
+            List<JmmNode> importParts = importDecl.getChildren(Kind.IMPORT_PART.getNodeName());
+            if (importParts.isEmpty()) {
+                System.out.println("IMPORT: No importPart found for node: " + importDecl);
+                continue;
+            }
+            JmmNode importPart = importParts.get(0);
+            System.out.println("IMPORT: Found importPart: " + importPart);
+
+            String namesStr = (String) importPart.get("name");
+            if (namesStr == null) {
+                System.out.println("IMPORT: No 'name' attribute found in importPart: " + importPart);
+                continue;
+            }
+            System.out.println("IMPORT: Original name attribute: " + namesStr);
+
+            // Remove the first and last characters (assuming they're the brackets)
+            if (namesStr.length() >= 2) {
+                namesStr = namesStr.substring(1, namesStr.length() - 1);
+            }
+            System.out.println("IMPORT: After removing brackets: " + namesStr);
+
+            // Replace the commas (and optional spaces) with dots
+            String completeImport = namesStr.replaceAll(",\\s*", ".");
+            System.out.println("IMPORT: Completed import: " + completeImport);
+
+            imports.add(completeImport);
+        }
+
+        return imports;
     }
+
+
 
     private List<Symbol> buildFields(JmmNode classDecl) {
         List<Symbol> fields = new ArrayList<>();

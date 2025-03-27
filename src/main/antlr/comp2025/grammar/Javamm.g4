@@ -47,8 +47,10 @@ program
     ;
 
 importDecl
-    : IMPORT name=ID ('.' ID)* SEMI_COLON
+    : IMPORT importPart SEMI_COLON
     ;
+importPart:
+    name+=ID ('.' name+=ID)*;
 
 classDecl
     : CLASS name=ID ( 'extends' superClass=ID )? LEFT_BRACE

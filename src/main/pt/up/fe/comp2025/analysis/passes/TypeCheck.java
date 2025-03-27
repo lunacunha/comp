@@ -151,6 +151,8 @@ public class TypeCheck extends AnalysisVisitor {
             // Caso especial: tipos diferentes, mas ambos vêm de imports → assume compatibilidade
             boolean leftImported = symbolTable.getImports().stream().anyMatch(i -> i.endsWith(left.getName()));
             boolean rightImported = symbolTable.getImports().stream().anyMatch(i -> i.endsWith(right.getName()));
+            System.out.println(">> [DEBUG] Assuming compatibility between imported types '" + leftImported + "' and '" + rightImported + "'" + symbolTable.getImports());
+
             if (leftImported && rightImported) {
                 System.out.println(">> [DEBUG] Assuming compatibility between imported types '" + left + "' and '" + right + "'");
                 return null;
