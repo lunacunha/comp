@@ -101,7 +101,7 @@ public enum Kind {
      * @return
      */
     public boolean check(JmmNode node) {
-        return node.getKind().equals(this.name); // Corrigido para evitar erro
+        return node.getKind().equals(this.name);
     }
 
     /**

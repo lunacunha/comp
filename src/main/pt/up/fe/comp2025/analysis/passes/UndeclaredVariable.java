@@ -25,7 +25,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
     private Void visitVarRefExpr(JmmNode varRef, SymbolTable table) {
         String name = varRef.get("name");
 
-        // LITERALS não são variáveis
         if (name.equals("true") || name.equals("false")) {
             return null;
         }
@@ -43,7 +42,6 @@ public class UndeclaredVariable extends AnalysisVisitor {
             addReport(Report.newError(Stage.SEMANTIC, varRef.getLine(), varRef.getColumn(),
                     "Variable '" + name + "' does not exist.", null));
         }
-
         return null;
     }
 

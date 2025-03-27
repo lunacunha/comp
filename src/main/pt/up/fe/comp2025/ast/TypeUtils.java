@@ -16,7 +16,6 @@ public class TypeUtils {
         this.table = (JmmSymbolTable) table;
     }
 
-    // Tipos básicos
     public static Type newIntType() {
         return new Type("int", false);
     }
@@ -33,7 +32,6 @@ public class TypeUtils {
         return new Type("boolean", true);
     }
 
-    // Conversão de nós do AST para tipos internos
     public static Type convertType(JmmNode typeNode) {
         switch (typeNode.getKind()) {
             case "IntType":
@@ -55,12 +53,10 @@ public class TypeUtils {
         }
     }
 
-    // Verifica se o tipo é int (não array)
     public static boolean isInt(Type t) {
         return t.getName().equals("int") && !t.isArray();
     }
 
-    // Verifica se o tipo é boolean (não array)
     public static boolean isBoolean(Type t) {
         return t.getName().equals("boolean") && !t.isArray();
     }
@@ -69,23 +65,19 @@ public class TypeUtils {
         return type.isArray() && type.getName().equals("int");
     }
 
-    // Verifica se o nome do tipo é primitivo
     public static boolean isPrimitive(String typeName) {
         return typeName.equals("int") || typeName.equals("boolean") || typeName.equals("void");
     }
 
-    // Compatibilidade entre tipos
     public boolean isCompatible(Type expected, Type actual) {
         if (expected.equals(actual)) return true;
 
-        // Suporte para herança
         if (!isPrimitive(expected.getName()) && table.getSuper() != null) {
             if (actual.getName().equals(table.getClassName()) && expected.getName().equals(table.getSuper())) {
                 return true;
             }
         }
 
-        // Adicional: impedir int → boolean e vice-versa
         if (isPrimitive(expected.getName()) && isPrimitive(actual.getName())) {
             return expected.getName().equals(actual.getName());
         }
@@ -94,7 +86,6 @@ public class TypeUtils {
     }
 
 
-    // Verifica se this pode ser atribuído à variável de tipo target
     public boolean canAssignThisTo(Type targetType) {
         String className = table.getClassName();
         String superClass = table.getSuper();
@@ -103,7 +94,6 @@ public class TypeUtils {
                 (superClass != null && targetType.getName().equals(superClass));
     }
 
-    // Obter tipo de variável local, argumento ou field
     public Type getVarType(String name, String methodName) {
         Optional<Symbol> symbol =
                 table.getLocalVariables(methodName).stream().filter(s -> s.getName().equals(name)).findFirst()
@@ -113,23 +103,16 @@ public class TypeUtils {
         return symbol.map(Symbol::getType).orElse(new Type("unknown", false));
     }
 
-    // Verifica se o método tem varargs
     public boolean hasVarargs(String methodName) {
         var params = table.getParameters(methodName);
         return !params.isEmpty() && params.get(params.size() - 1).getType().isArray();
     }
 
-    // Verifica se o tipo é array literal e é válido
     public boolean isValidArrayLiteralAssignment(Type target, Type source) {
         return source.isArray() && source.getName().equals("int") && target.isArray() && target.getName().equals("int");
     }
 
-    /**
-     * Gets the {@link Type} of an arbitrary expression.
-     * Atualiza quando necessário.
-     */
     public Type getExprType(JmmNode expr) {
-        // Placeholder se quiseres expandir
         return new Type("int", false);
     }
 }

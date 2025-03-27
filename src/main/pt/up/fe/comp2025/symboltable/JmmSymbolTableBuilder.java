@@ -56,13 +56,11 @@ public class JmmSymbolTableBuilder {
             }
             System.out.println("IMPORT: Original name attribute: " + namesStr);
 
-            // Remove the first and last characters (assuming they're the brackets)
             if (namesStr.length() >= 2) {
                 namesStr = namesStr.substring(1, namesStr.length() - 1);
             }
             System.out.println("IMPORT: After removing brackets: " + namesStr);
 
-            // Replace the commas (and optional spaces) with dots
             String completeImport = namesStr.replaceAll(",\\s*", ".");
             System.out.println("IMPORT: Completed import: " + completeImport);
 

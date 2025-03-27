@@ -49,24 +49,7 @@ public class TypeCheck extends AnalysisVisitor {
         addVisit("LocalMethodCall", this::visitMethodCall);
     }
 
-
-    private final Set<String> seenKinds = new HashSet<>();
-
     @Override
-    public Void visit(JmmNode node, SymbolTable table) {
-        this.symbolTable = table;
-        this.typeUtils = new TypeUtils(table);
-
-        String kind = node.getKind();
-        if (!seenKinds.contains(kind)) {
-            seenKinds.add(kind);
-        }
-
-        return super.visit(node, table);
-    }
-
-
-    /*@Override
     public Void visit(JmmNode node, SymbolTable table) {
         System.out.println(">> [DEBUG] Visiting node: " + node.getKind() + " @ line: " + node.getLine() + ", col: " + node.getColumn());
         System.out.println("   [INFO] Node attributes: " + node.getAttributes());
@@ -75,31 +58,26 @@ public class TypeCheck extends AnalysisVisitor {
         this.typeUtils = new TypeUtils(table);
         System.out.println(">> [DEBUG] Visiting node: " + node.getKind());
         return super.visit(node, table);
-    }*/
+    }
 
     private Void visitMethod(JmmNode method, SymbolTable table) {
         currentMethod = method.get("name");
         List<Symbol> parameters = table.getParameters(currentMethod);
 
-        // Verificação de varargs na declaração do método
         boolean foundVararg = false;
         for (int i = 0; i < parameters.size(); i++) {
             Symbol param = parameters.get(i);
             Type paramType = param.getType();
 
-            // Se o parâmetro for vararg
             if (TypeUtils.isValidVararg(paramType)) {
-                // 1. Deve ser único
                 if (foundVararg) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
                             "Multiple varargs parameters in method '" + currentMethod + "'", null));
                 }
-                // 2. Deve ser o último parâmetro
                 if (i != parameters.size() - 1) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
                             "Vararg parameter must be last in method '" + currentMethod + "'", null));
                 }
-                // Opcional: Verificar se o tipo base do vararg é int
                 if (!paramType.getName().equals("int")) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
                             "Vararg parameter in method '" + currentMethod + "' must be of type int", null));
@@ -138,8 +116,6 @@ public class TypeCheck extends AnalysisVisitor {
         Type right = inferType(assign.getChild(0));
         System.out.println(">> [DEBUG] Assignment: left = " + left + ", right = " + right);
 
-
-        // Verificação especial para array literals
         if (assign.getChild(0).getKind().equals("ArrayInit")) {
             if (!left.isArray() || !left.getName().equals("int")) {
                 addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
@@ -151,7 +127,6 @@ public class TypeCheck extends AnalysisVisitor {
 
         if (!right.getName().equals("unknown") && !typeUtils.isCompatible(left, right)) {
 
-            // Caso especial: tipos diferentes, mas ambos vêm de imports → assume compatibilidade
             boolean leftImported = symbolTable.getImports().stream().anyMatch(i -> i.endsWith(left.getName()));
             boolean rightImported = symbolTable.getImports().stream().anyMatch(i -> i.endsWith(right.getName()));
             System.out.println(">> [DEBUG] Assuming compatibility between imported types '" + leftImported + "' and '" + rightImported + "'" + symbolTable.getImports());
@@ -161,7 +136,6 @@ public class TypeCheck extends AnalysisVisitor {
                 return null;
             }
 
-            // Caso especial: 'this'
             if (right.getName().equals(symbolTable.getClassName())) {
                 if (!typeUtils.canAssignThisTo(left)) {
                     addReport(Report.newError(Stage.SEMANTIC, assign.getLine(), assign.getColumn(),
@@ -311,15 +285,12 @@ public class TypeCheck extends AnalysisVisitor {
             System.out.println(">> [DEBUG] Method '" + methodName + "' assumed valid due to imports or inheritance.");
             return null;
         }
-
-        // Verificação normal dos argumentos
         List<Symbol> params = symbolTable.getParameters(methodName);
         List<JmmNode> args = call.getChildren().stream()
                 .filter(child -> !child.getKind().equals("MethodName"))
                 .collect(Collectors.toList());
 
         boolean hasVararg = typeUtils.hasVarargs(methodName);
-        // Para métodos com vararg, os parâmetros fixos são todos, exceto o último (que é o vararg)
         int fixedParams = hasVararg ? params.size() - 1 : params.size();
 
         if (!hasVararg && args.size() != params.size()) {
@@ -330,7 +301,6 @@ public class TypeCheck extends AnalysisVisitor {
                     "Not enough arguments for method '" + methodName + "'. Expected at least " + fixedParams + ", got " + args.size(), null));
         }
 
-        // Verifica dos parâmetros fixos
         for (int i = 0; i < Math.min(args.size(), fixedParams); i++) {
             Type expected = params.get(i).getType();
             Type actual = inferType(args.get(i));
@@ -340,11 +310,6 @@ public class TypeCheck extends AnalysisVisitor {
                                 "': expected " + expected + ", got " + actual, null));
             }
         }
-
-        // Os argumentos para o vararg são assumidos como corretos,
-        // pois a verificação de existência, posição e tipo do vararg já foi feita em visitMethod.
-        // Se necessário, o inferType dos nós dos argumentos irá apontar inconsistências de tipo.
-
         return null;
     }
 
@@ -361,25 +326,17 @@ public class TypeCheck extends AnalysisVisitor {
                 String varName = node.get("name");
 
                 if (symbolTable.getMethods().contains(varName)) {
-                    // Isto não é uma variável, é o nome de um método
                     yield new Type("unknown", false); // ignora
                 }
-
-                // Lida com literais booleanos
                 if (varName.equals("true") || varName.equals("false")) {
                     yield TypeUtils.newBooleanType();
                 }
-
                 try {
                     yield typeUtils.getVarType(varName, currentMethod);
                 } catch (RuntimeException e) {
                     yield new Type("unknown", false);
                 }
             }
-
-
-
-
             case "ThisExpr" -> {
                 if ("main".equals(currentMethod)) {
                     addReport(Report.newError(Stage.SEMANTIC, node.getLine(), node.getColumn(),
@@ -407,16 +364,13 @@ public class TypeCheck extends AnalysisVisitor {
                 Type elemType = inferType(node.getChild(0));
                 yield new Type(elemType.getName(), true);
             }
-
             case "Varargs", "VarArg", "VarArgInt" -> new Type("int", true);
             case "VarArgBool" -> new Type("boolean", true);
-
             case "MethodCall", "LocalMethodCall" -> {
                 String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
                 if (!symbolTable.getMethods().contains(method)) yield new Type("unknown", false);
                 yield symbolTable.getReturnType(method);
             }
-
             default -> new Type("unknown", false);
         };
     }
