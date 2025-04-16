@@ -41,6 +41,7 @@ BOOLEAN : 'boolean' ;
 WS : [ \t\n\r\f]+ -> skip ;
 ID : [a-zA-Z_$][a-zA-Z0-9_$]* ;
 
+
 program
     : (importDecl)* classDecl+ EOF
     ;
