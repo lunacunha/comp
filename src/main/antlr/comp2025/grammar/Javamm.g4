@@ -92,7 +92,7 @@ paramList
 
 stmt
     : WHILE LEFT_PARENTHESES expr RIGHT_PARENTHESES stmt             #WhileStatement
-    | 'if' LEFT_PARENTHESES expr RIGHT_PARENTHESES stmt 'else' stmt  #IfStatement
+    | 'if' LEFT_PARENTHESES expr RIGHT_PARENTHESES stmt ('else' stmt)?  #IfStatement
     | LEFT_BRACE stmt* RIGHT_BRACE                                   #BlockStatement
     | name=ID EQUAL expr SEMI_COLON                                       #AssignStatement
     | name=ID LEFT_BRACKET expr RIGHT_BRACKET EQUAL expr SEMI_COLON       #ArrayAssignStatement
