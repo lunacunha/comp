@@ -4,6 +4,7 @@ import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.report.Report;
+import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2025.ast.Kind;
 import pt.up.fe.comp2025.ast.TypeUtils;
 
@@ -74,6 +75,7 @@ public class JmmSymbolTableBuilder {
 
     private List<Symbol> buildFields(JmmNode classDecl) {
         List<Symbol> fields = new ArrayList<>();
+        Set<String> fieldNames = new HashSet<>();
 
         for (JmmNode varDecl : classDecl.getChildren(Kind.VAR_DECL.getNodeName())) {
             var typeNode = varDecl.getChildren().stream()
@@ -82,18 +84,44 @@ public class JmmSymbolTableBuilder {
 
             if (typeNode.isEmpty() || !varDecl.hasAttribute("name")) continue;
 
+            String fieldName = varDecl.get("name");
+
+            if (!fieldNames.add(fieldName)) {
+                reports.add(Report.newError(Stage.SEMANTIC, varDecl.getLine(), varDecl.getColumn(),
+                        "Duplicated field '" + fieldName + "'", null));
+            }
+
             Type fieldType = convertType(typeNode.get());
-            fields.add(new Symbol(fieldType, varDecl.get("name")));
+
+            fields.add(new Symbol(fieldType, fieldName));
         }
 
         return fields;
     }
 
     private List<String> buildMethods(JmmNode classDecl) {
-        return classDecl.getChildren(Kind.METHOD_DECL.getNodeName()).stream()
-                .map(method -> method.getOptional("name").orElse("main"))
-                .collect(Collectors.toList());
+        Set<String> methodNames = new HashSet<>();
+        List<String> methods = new ArrayList<>();
+
+        for (JmmNode method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
+            String methodName = method.getOptional("name").orElse("main");
+
+            if (!methodNames.add(methodName)) {
+                reports.add(Report.newError(
+                        Stage.SEMANTIC,
+                        method.getLine(),
+                        method.getColumn(),
+                        "Duplicated method '" + methodName + "'",
+                        null
+                ));
+            }
+
+            methods.add(methodName);
+        }
+
+        return methods;
     }
+
 
     private Map<String, Type> buildReturnTypes(JmmNode classDecl) {
         Map<String, Type> returnTypes = new HashMap<>();
@@ -119,19 +147,26 @@ public class JmmSymbolTableBuilder {
             String methodName = method.getOptional("name").orElse("main");
             List<Symbol> parameters = new ArrayList<>();
 
+            Set<String> paramNames = new HashSet<>();
+
             for (JmmNode param : method.getChildren(Kind.NORMAL_PARAM.getNodeName())) {
                 Type paramType;
 
-                if (param.getKind().equals("VarargParam")) { // int... → int[]
+                if (param.getKind().equals("VarargParam")) {
                     paramType = new Type("int", true);
                 } else {
                     JmmNode typeNode = param.getChildren().get(0);
                     paramType = convertType(typeNode);
-                    System.out.println("PARAM TYPE IS " + paramType);
-
                 }
 
-                parameters.add(new Symbol(paramType, param.get("name")));
+                String paramName = param.get("name");
+
+                if (!paramNames.add(paramName)) {
+                    reports.add(Report.newError(Stage.SEMANTIC, param.getLine(), param.getColumn(),
+                            "Duplicated parameter '" + paramName + "' in method '" + methodName + "'", null));
+                }
+
+                parameters.add(new Symbol(paramType, paramName));
             }
 
             paramsMap.put(methodName, parameters);
@@ -147,6 +182,8 @@ public class JmmSymbolTableBuilder {
             String methodName = method.getOptional("name").orElse("main");
             List<Symbol> locals = new ArrayList<>();
 
+            Set<String> localNames = new HashSet<>();
+
             for (JmmNode localVar : method.getChildren(Kind.VAR_DECL.getNodeName())) {
                 var typeNode = localVar.getChildren().stream()
                         .filter(child -> child.getKind().endsWith("Type") || child.getKind().startsWith("VarArg"))
@@ -155,7 +192,14 @@ public class JmmSymbolTableBuilder {
                 if (typeNode.isEmpty() || !localVar.hasAttribute("name")) continue;
 
                 Type varType = convertType(typeNode.get());
-                locals.add(new Symbol(varType, localVar.get("name")));
+                String varName = localVar.get("name");
+
+                if (!localNames.add(varName)) {
+                    reports.add(Report.newError(Stage.SEMANTIC, localVar.getLine(), localVar.getColumn(),
+                            "Duplicated local variable '" + varName + "' in method '" + methodName + "'", null));
+                }
+
+                locals.add(new Symbol(varType, varName));
             }
 
             localsMap.put(methodName, locals);
