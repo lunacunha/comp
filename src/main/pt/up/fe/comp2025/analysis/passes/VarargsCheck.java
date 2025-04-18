@@ -20,7 +20,7 @@ public class VarargsCheck extends AnalysisVisitor {
     }
 
     private boolean isVararg(Type type) {
-        return type.getName().endsWith("...");
+        return type.isArray() && type.getName().equals("int");
     }
 
     private Void visitMethod(JmmNode method, SymbolTable table) {
@@ -42,11 +42,6 @@ public class VarargsCheck extends AnalysisVisitor {
                             "Vararg parameter must be last in method '" + methodName + "'", null));
                 }
                 foundVararg = true;
-
-                if (!paramType.getName().equals("int...")) {
-                    addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
-                            "Vararg parameter must be of type int", null));
-                }
             }
         }
         return null;

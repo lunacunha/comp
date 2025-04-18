@@ -34,6 +34,8 @@ public class JmmAnalysisImpl implements JmmAnalysis {
         passes.add(new UndeclaredMethod());
         passes.add(new TypeCheck());
         passes.add(new VarargsCheck());
+        passes.add(new ThisUsageCheck());
+        passes.add(new ReturnStatementCheck());
 
         return passes;
     }

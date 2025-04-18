@@ -84,6 +84,12 @@ public class JmmSymbolTableBuilder {
 
             if (typeNode.isEmpty() || !varDecl.hasAttribute("name")) continue;
 
+            if (typeNode.get().getKind().startsWith("VarArg")) {
+                reports.add(Report.newError(Stage.SEMANTIC, varDecl.getLine(), varDecl.getColumn(),
+                        "Vararg type not allowed for field '" + varDecl.get("name") + "'", null));
+                continue;
+            }
+
             String fieldName = varDecl.get("name");
 
             if (!fieldNames.add(fieldName)) {
@@ -92,7 +98,6 @@ public class JmmSymbolTableBuilder {
             }
 
             Type fieldType = convertType(typeNode.get());
-
             fields.add(new Symbol(fieldType, fieldName));
         }
 
@@ -128,17 +133,28 @@ public class JmmSymbolTableBuilder {
 
         for (JmmNode method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
             String methodName = method.getOptional("name").orElse("main");
-            Type returnType = method.getChildren().stream()
+            JmmNode returnTypeNode = method.getChildren().stream()
                     .filter(child -> child.getKind().endsWith("Type") || child.getKind().startsWith("VarArg"))
                     .findFirst()
-                    .map(TypeUtils::convertType)
-                    .orElse(new Type("void", false));
+                    .orElse(null);
 
+            Type returnType;
+            if (returnTypeNode == null) {
+                returnType = new Type("void", false);
+            } else {
+                if (returnTypeNode.getKind().equals("IntArrayType")) {
+                    returnType = new Type("int", true);
+                } else if (returnTypeNode.getKind().equals("BooleanArrayType")) {
+                    returnType = new Type("boolean", true);
+                } else {
+                    returnType = convertType(returnTypeNode);
+                }
+            }
             returnTypes.put(methodName, returnType);
         }
-
         return returnTypes;
     }
+
 
     private Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
         Map<String, List<Symbol>> paramsMap = new HashMap<>();
@@ -146,17 +162,29 @@ public class JmmSymbolTableBuilder {
         for (JmmNode method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
             String methodName = method.getOptional("name").orElse("main");
             List<Symbol> parameters = new ArrayList<>();
-
             Set<String> paramNames = new HashSet<>();
+            boolean foundVararg = false;
 
             for (JmmNode param : method.getChildren(Kind.NORMAL_PARAM.getNodeName())) {
                 Type paramType;
+                boolean isVararg = param.getKind().equals("VarargParam");
 
-                if (param.getKind().equals("VarargParam")) {
+                if (isVararg && foundVararg) {
+                    reports.add(Report.newError(Stage.SEMANTIC, param.getLine(), param.getColumn(),
+                            "Multiple varargs parameters in method '" + methodName + "'", null));
+                }
+
+                if (isVararg) {
                     paramType = new Type("int", true);
+                    foundVararg = true;
                 } else {
                     JmmNode typeNode = param.getChildren().get(0);
                     paramType = convertType(typeNode);
+                }
+
+                if (isVararg && !paramType.getName().equals("int")) {
+                    reports.add(Report.newError(Stage.SEMANTIC, param.getLine(), param.getColumn(),
+                            "Vararg parameter must be of type int in method '" + methodName + "'", null));
                 }
 
                 String paramName = param.get("name");
@@ -167,6 +195,14 @@ public class JmmSymbolTableBuilder {
                 }
 
                 parameters.add(new Symbol(paramType, paramName));
+            }
+
+            if (foundVararg && parameters.size() > 1) {
+                Symbol lastParam = parameters.get(parameters.size() - 1);
+                if (!lastParam.getType().isArray()) {
+                    reports.add(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
+                            "Vararg parameter must be last in method '" + methodName + "'", null));
+                }
             }
 
             paramsMap.put(methodName, parameters);
@@ -181,7 +217,6 @@ public class JmmSymbolTableBuilder {
         for (JmmNode method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
             String methodName = method.getOptional("name").orElse("main");
             List<Symbol> locals = new ArrayList<>();
-
             Set<String> localNames = new HashSet<>();
 
             for (JmmNode localVar : method.getChildren(Kind.VAR_DECL.getNodeName())) {
@@ -189,7 +224,15 @@ public class JmmSymbolTableBuilder {
                         .filter(child -> child.getKind().endsWith("Type") || child.getKind().startsWith("VarArg"))
                         .findFirst();
 
-                if (typeNode.isEmpty() || !localVar.hasAttribute("name")) continue;
+                if (typeNode.isEmpty() || !localVar.hasAttribute("name")) {
+                    continue;
+                }
+
+                if (typeNode.get().getKind().startsWith("VarArg")) {
+                    reports.add(Report.newError(Stage.SEMANTIC, localVar.getLine(), localVar.getColumn(),
+                            "Vararg type not allowed for local variable '" + localVar.get("name") + "'", null));
+                    continue;
+                }
 
                 Type varType = convertType(typeNode.get());
                 String varName = localVar.get("name");

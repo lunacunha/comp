@@ -72,10 +72,14 @@ public class TypeUtils {
     public boolean isCompatible(Type expected, Type actual) {
         if (expected.equals(actual)) return true;
 
-        if (!isPrimitive(expected.getName()) && table.getSuper() != null) {
-            if (actual.getName().equals(table.getClassName()) && expected.getName().equals(table.getSuper())) {
-                return true;
-            }
+        if (actual.getName().equals(table.getClassName()) && expected.getName().equals(table.getSuper())) {
+            return true;
+        }
+
+        boolean expectedImported = table.getImports().stream().anyMatch(imp -> imp.endsWith("." + expected.getName()));
+        boolean actualImported = table.getImports().stream().anyMatch(imp -> imp.endsWith("." + actual.getName()));
+        if (expectedImported && actualImported && expected.getName().equals(actual.getName())) {
+            return true;
         }
 
         if (isPrimitive(expected.getName()) && isPrimitive(actual.getName())) {
