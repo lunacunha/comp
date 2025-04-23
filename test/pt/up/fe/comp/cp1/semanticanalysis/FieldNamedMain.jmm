@@ -1,0 +1,6 @@
+class FieldNamedMain {
+    int main;
+    public int test() {
+        return 1;
+    }
+}

@@ -59,7 +59,6 @@ classDecl
       RIGHT_BRACE
     ;
 
-
 varDecl
     : type name=ID SEMI_COLON
     ;
@@ -71,13 +70,14 @@ type
     | BOOLEAN                     #BooleanType
     | name=ID                          #ClassType
     | INT LEFT_BRACKET RIGHT_BRACKET #IntArrayType
+    | name='void' #VoidType
     ;
 
 
 methodDecl
     : (PUBLIC)? type name=ID LEFT_PARENTHESES (paramDecl (',' paramDecl)*)? RIGHT_PARENTHESES
             LEFT_BRACE varDecl* stmt* RIGHT_BRACE
-    | (PUBLIC)? 'static' 'void' name='main' LEFT_PARENTHESES ID LEFT_BRACKET RIGHT_BRACKET ID RIGHT_PARENTHESES
+    | (PUBLIC)? 'static' 'void' name=ID LEFT_PARENTHESES ID LEFT_BRACKET RIGHT_BRACKET ID RIGHT_PARENTHESES
       LEFT_BRACE varDecl* stmt* RIGHT_BRACE
     ;
 
@@ -109,7 +109,7 @@ expr
     | expr LESS_THAN expr                                                 #LessThanExpr
     | expr '.' name=ID                                                         #FieldAccess
     | expr LEFT_BRACKET expr RIGHT_BRACKET                                #ArrayAccess
-    | expr '.' 'length'                                                   #ArrayLength
+    | expr '.' name=ID                                                   #ArrayLength
     | LEFT_BRACKET (expr (',' expr)*)? RIGHT_BRACKET                      #ArrayInit
     | expr '.' name=ID LEFT_PARENTHESES (expr (',' expr)*)? RIGHT_PARENTHESES  #MethodCall
     | 'new' INT LEFT_BRACKET expr RIGHT_BRACKET                           #NewArray

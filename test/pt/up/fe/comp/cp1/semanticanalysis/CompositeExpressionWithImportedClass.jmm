@@ -1,0 +1,22 @@
+import MathLib;
+
+class CompositeExpressionWithImportedClass {
+    public int calculate(int x) {
+        return x * 2;
+    }
+
+    public int test() {
+        int result;
+        MathLib lib;
+
+        lib = new MathLib();
+
+        // Valid: call to method in current class in complex expression
+        result = 5 + this.calculate(10);
+
+        // Valid: simple call to imported class method
+        lib.process(result);
+
+        return result;
+    }
+}

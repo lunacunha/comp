@@ -1,0 +1,10 @@
+class ThisInStaticMethod {
+    public static void main(String[] args) {
+        int a;
+        a = this.getNumber(); // Error: cannot use 'this' in static method
+    }
+
+    public int getNumber() {
+        return 42;
+    }
+}

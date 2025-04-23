@@ -13,9 +13,7 @@ import static pt.up.fe.comp2025.ast.Kind.TYPE;
  */
 public class OptUtils {
 
-
     private final AccumulatorMap<String> temporaries;
-
     private final TypeUtils types;
 
     public OptUtils(TypeUtils types) {
@@ -23,41 +21,34 @@ public class OptUtils {
         this.temporaries = new AccumulatorMap<>();
     }
 
-
     public String nextTemp() {
-
         return nextTemp("tmp");
     }
 
     public String nextTemp(String prefix) {
-
-        // Subtract 1 because the base is 1
         var nextTempNum = temporaries.add(prefix) - 1;
-
         return prefix + nextTempNum;
     }
 
-
     public String toOllirType(JmmNode typeNode) {
-
         TYPE.checkOrThrow(typeNode);
-
         return toOllirType(types.convertType(typeNode));
     }
 
     public String toOllirType(Type type) {
-        return toOllirType(type.getName());
-    }
+        if (type.isArray()) {
+            return ".array." + switch (type.getName()) {
+                case "int" -> "i32";
+                case "boolean" -> "bool";
+                default -> throw new NotImplementedException("Unsupported array type: " + type.getName());
+            };
+        }
 
-    private String toOllirType(String typeName) {
-
-        String type = "." + switch (typeName) {
+        return "." + switch (type.getName()) {
             case "int" -> "i32";
-            default -> throw new NotImplementedException(typeName);
+            case "boolean" -> "bool";
+            case "void" -> "V";
+            default -> type.getName(); // tipo de classe
         };
-
-        return type;
     }
-
-
 }

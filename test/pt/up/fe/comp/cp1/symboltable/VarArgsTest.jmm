@@ -1,0 +1,28 @@
+// Tests that varargs parameters are correctly added to the symbol table
+import java.io;
+
+class VarArgsTest {
+    // Methods with varargs parameters
+    
+    public int varArgsOnly(int... numbers) {
+        return numbers.length;
+    }
+    
+    public int mixedParams(int start, int... numbers) {
+        return start + numbers.length;
+    }
+    
+    public static void main(String[] args) {
+        VarArgsTest test;
+        int result1;
+        int result2;
+        
+        test = new VarArgsTest();
+        
+        // Call with individual values
+        result1 = test.varArgsOnly(1, 2, 3);
+        
+        // Call with array initializer
+        result2 = test.mixedParams(10, [20, 30, 40]);
+    }
+}

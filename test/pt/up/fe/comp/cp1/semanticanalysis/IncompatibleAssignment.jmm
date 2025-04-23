@@ -1,0 +1,11 @@
+class IncompatibleAssignment {
+    public int testIncompatibleAssignment() {
+        boolean boolVar;
+        int intVar;
+
+        intVar = 5;
+        boolVar = intVar; // Error: cannot assign int to boolean
+
+        return 0;
+    }
+}

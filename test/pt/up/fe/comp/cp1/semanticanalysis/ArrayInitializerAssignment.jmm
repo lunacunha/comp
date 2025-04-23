@@ -1,0 +1,9 @@
+class ArrayInitializerAssignment {
+    public int test() {
+        int[] array;
+
+        array = [1, 2, 3]; // Valid: array initializer in assignment
+
+        return array[0];
+    }
+}

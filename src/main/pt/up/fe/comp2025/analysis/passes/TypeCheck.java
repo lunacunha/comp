@@ -25,7 +25,7 @@ public class TypeCheck extends AnalysisVisitor {
     public void buildVisitor() {
         addVisit("MethodDecl", this::visitMethod);
         addVisit("ReturnStatement", this::visitReturn);
-        addVisit("AssignStatement", this::visitAssign); // cuidado com "AssingStatement" se estiver errado
+        addVisit("AssignStatement", this::visitAssign);
 
         // Binary exprs
         addVisit("AdditionExpr", this::visitBinaryExpr);
@@ -38,7 +38,7 @@ public class TypeCheck extends AnalysisVisitor {
 
         // Control flow
         addVisit("IfStatement", this::visitIf);
-        addVisit("WhileStatement", this::visitWhile); // <-- CORRETO
+        addVisit("WhileStatement", this::visitWhile);
 
         // Arrays
         addVisit("ArrayAccess", this::visitArrayAccess);
@@ -233,7 +233,6 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
 
-
     private Void visitArrayAccess(JmmNode access, SymbolTable table) {
         Type arr = inferType(access.getChild(0));
         Type index = inferType(access.getChild(1));
@@ -248,6 +247,7 @@ public class TypeCheck extends AnalysisVisitor {
         }
         return null;
     }
+
 
     private Void visitArrayLiteral(JmmNode array, SymbolTable table) {
         List<JmmNode> elements = array.getChildren();
@@ -266,6 +266,7 @@ public class TypeCheck extends AnalysisVisitor {
         }
         return null;
     }
+
 
     private Void visitMethodCall(JmmNode call, SymbolTable table) {
         String methodName = call.hasAttribute("methodName") ? call.get("methodName") : call.get("name");
@@ -364,7 +365,7 @@ public class TypeCheck extends AnalysisVisitor {
                 Type elemType = inferType(node.getChild(0));
                 yield new Type(elemType.getName(), true);
             }
-            case "Varargs", "VarArg", "VarArgInt" -> new Type("int", true);
+            case "Varargs", "VarArg", "VarArgInt" -> TypeUtils.newIntType();
             case "VarArgBool" -> new Type("boolean", true);
             case "MethodCall", "LocalMethodCall" -> {
                 String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");

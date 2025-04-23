@@ -1,0 +1,9 @@
+class StatementsAfterReturn {
+    public int test(int a) {
+        return a;
+        a = a + 1;  // Statement after return should fail
+    }
+
+    public static void main(String[] args) {
+    }
+}

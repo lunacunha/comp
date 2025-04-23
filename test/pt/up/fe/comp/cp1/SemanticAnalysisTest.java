@@ -175,4 +175,276 @@ public class SemanticAnalysisTest {
     }
 
 
+    // SECTION 3.3.1: Types and Declarations Verification
+
+    @Test
+    public void testUndeclaredIdentifier() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/UndeclaredIdentifier.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testUndeclaredField() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/UndeclaredField.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testIncompatibleOperandTypes() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/IncompatibleOperandTypes.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testIntPlusBool() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/IntPlusBool.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testArrayInArithmeticOperation() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ArrayInArithmeticOperation.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testArrayAccessOnNonArray() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ArrayAccessOnNonArray.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testArrayAccessWithNonIntIndex() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ArrayAccessWithNonIntIndex.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testIncompatibleAssignment() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/IncompatibleAssignment.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testNonBooleanCondition() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/NonBooleanCondition.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testThisInStaticMethod() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ThisInStaticMethod.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testThisAsObject() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ThisAsObject.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void testThisAsObjectExtends() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ThisAsObjectExtends.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void testThisAsObjectIncompatible() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ThisAsObjectIncompatible.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testVarargsNotLastParameter() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/VarargsNotLastParameter.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testMultipleVarargsParameters() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/MultipleVarargsParameters.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testVarargsInFieldDeclaration() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/VarargsInFieldDeclaration.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testVarargsInMethodReturn() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/VarargsInMethodReturn.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testVarargsInVariable() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/VarargsInVariable.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testArrayInitializerAssignment() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ArrayInitializerAssignment.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void testArrayInitializerInMethodArg() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ArrayInitializerInMethodArg.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void testArrayInitializerInReturn() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ArrayInitializerInReturn.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    // SECTION 3.3.2: Method Verification
+
+    @Test
+    public void testMethodCallIncompatibleArgumentTypes() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/MethodCallIncompatibleArgumentTypes.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testMethodCallWrongNumberOfArguments() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/MethodCallWrongNumberOfArguments.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testVarargsMethodCall() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/VarargsMethodCall.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void testVarargsMethodCallWithArray() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/VarargsMethodCallWithArray.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void testMethodInSuperClass() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/MethodInSuperClass.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void testMethodNotInClassOrSuper() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/MethodNotInClassOrSuper.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testImportedClassMethodCall() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ImportedClassMethodCall.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void testNonImportedClassMethodCall() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/NonImportedClassMethodCall.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void testCompositeExpressionWithImportedClass() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/CompositeExpressionWithImportedClass.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void testAssignBoolNotInt() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/AssignBoolNotInt.jmm"));
+        TestUtils.mustFail(result);
+    }
+
+    @Test
+    public void fieldNamedMain() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/FieldNamedMain.jmm"));
+        TestUtils.noErrors(result);
+    }
+    @Test
+    public void negateBoolAssignBool() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/NegateBoolAssignBool.jmm"));
+        TestUtils.noErrors(result);
+    }
+
+    @Test
+    public void varNamedLength() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/VarNamedLength.jmm"));
+        TestUtils.noErrors(result);
+    }
+    @Test
+    public void boolVarCorrect() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/BoolVarCorrect.jmm"));
+        TestUtils.noErrors(result);
+    }
+    @Test
+    public void ifConditionCorrect() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/IfConditionCorrect.jmm"));
+        TestUtils.noErrors(result);
+    }
+    @Test
+    public void whileConditionCorrect() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/WhileConditionCorrect.jmm"));
+        TestUtils.noErrors(result);
+    }
+    @Test
+    public void duplicateImports() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/DuplicateImports.jmm"));
+        TestUtils.mustFail(result);
+    }
+    @Test
+    public void duplicateVarName() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/DuplicateVarName.jmm"));
+        TestUtils.mustFail(result);
+    }
+    @Test
+    public void duplicateMethodSignature() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/DuplicateMethodSignature.jmm"));
+        TestUtils.mustFail(result);
+    }
+    @Test
+    public void duplicateParams() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/DuplicateParams.jmm"));
+        TestUtils.mustFail(result);
+    }
+    @Test
+    public void lengthCall() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/CallLength.jmm"));
+        TestUtils.mustFail(result);
+    }
+    @Test
+    public void lengthInExpression() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/LengthInExpression.jmm"));
+        TestUtils.mustFail(result);
+    }
+    @Test
+    public void StatementsAfterReturn() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/StatementsAfterReturn.jmm"));
+        TestUtils.mustFail(result);
+    }
+    @Test
+    public void ValidClass() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/ValidClass.jmm"));
+        TestUtils.noErrors(result);
+    }
+    @Test
+    public void voidWithReturn() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/VoidWithReturn.jmm"));
+        TestUtils.mustFail(result);
+    }
+    @Test
+    public void intWithoutReturn() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/IntWithoutReturn.jmm"));
+        TestUtils.mustFail(result);
+    }
+
 }

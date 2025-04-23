@@ -81,7 +81,6 @@ public enum Kind {
         for (Kind kind : otherKinds) {
             nodeNames.add(kind.getNodeName());
         }
-
         return nodeNames;
     }
 

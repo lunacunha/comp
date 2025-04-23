@@ -1,0 +1,11 @@
+import ParentClass;
+
+class ThisAsObjectExtends extends ParentClass {
+    public int testThisAsObjectExtends() {
+        ParentClass obj;
+
+        obj = this; // Valid: 'this' can be assigned to parent class type
+
+        return 0;
+    }
+}

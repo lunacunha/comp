@@ -1,0 +1,15 @@
+class NonBooleanCondition {
+    public int testNonBooleanCondition() {
+        int notABoolean;
+
+        notABoolean = 5;
+
+        if (notABoolean) { // Error: condition must be boolean
+            notABoolean = 10;
+        } else {
+            notABoolean = 15;
+        }
+
+        return notABoolean;
+    }
+}

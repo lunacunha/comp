@@ -1,0 +1,11 @@
+class IncompatibleOperandTypes {
+    public int testIncompatibleOperandTypes() {
+        boolean a;
+        int b;
+
+        a = true;
+        b = 5;
+
+        return a + b; // Error: cannot add boolean and int
+    }
+}

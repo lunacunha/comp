@@ -1,0 +1,12 @@
+class LengthTest {
+    public int[] buildArray() {
+        int[] arr = new int[10];
+        return arr;
+    }
+
+    public int getLength() {
+        int[] nums = buildArray();
+        int len = nums.length;
+        return len;
+    }
+}

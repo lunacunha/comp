@@ -1,0 +1,15 @@
+// Tests that fields are correctly added to the symbol table
+import java.io;
+import custom.SomeClass;
+
+class FieldsTest {
+    // Fields with different types
+    int intField;
+    boolean boolField;
+    SomeClass objectField;
+    int[] intArrayField;
+    
+    public static void main(String[] args) {
+        // Empty main method
+    }
+}

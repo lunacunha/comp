@@ -1,0 +1,9 @@
+class ArrayAccessOnNonArray {
+    public int testArrayAccessOnNonArray() {
+        int notAnArray;
+
+        notAnArray = 5;
+
+        return notAnArray[0]; // Error: array access on non-array type
+    }
+}

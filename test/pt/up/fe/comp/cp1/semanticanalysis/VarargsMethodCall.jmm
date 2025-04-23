@@ -1,0 +1,20 @@
+class VarargsMethodCall {
+    public int sumAll(int... numbers) {
+        int sum;
+        int i;
+
+        sum = 0;
+        i = 0;
+
+        while (i < numbers.length) {
+            sum = sum + numbers[i];
+            i = i + 1;
+        }
+
+        return sum;
+    }
+
+    public int test() {
+        return this.sumAll(1, 2, 3, 4, 5); // Valid: varargs method call with multiple arguments
+    }
+}

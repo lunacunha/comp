@@ -48,6 +48,8 @@ public class TypeUtils {
                 return new Type("int", true);
             case "VarargParam":
                 return new Type("int", true);
+            case "VoidType":
+                return new Type("void", false);
             default:
                 return new Type("unknown", false);
         }
@@ -116,7 +118,31 @@ public class TypeUtils {
         return source.isArray() && source.getName().equals("int") && target.isArray() && target.getName().equals("int");
     }
 
-    public Type getExprType(JmmNode expr) {
-        return new Type("int", false);
+    public Type getExprType(JmmNode node) {
+        return switch (node.getKind()) {
+            case "IntegerLiteral" -> newIntType();
+            case "BooleanLiteral" -> newBooleanType();
+            case "VarRefExpr" -> getVarType(node.get("name"), "main"); // ou passa o método atual
+            case "ThisExpr" -> new Type(table.getClassName(), false);
+            case "NewArrayExpr", "ArrayInit", "ArrayLiteralExpr" -> newIntArrayType();
+            case "ArrayAccessExpr" -> newIntType(); // assume int[] para já
+            case "NewClassExpr" -> new Type(node.get("className"), false);
+            case "BinaryExpr" -> {
+                String op = node.get("op");
+                yield (op.equals("&&") || op.equals("<") || op.equals("=="))
+                        ? newBooleanType()
+                        : newIntType();
+            }
+            case "AdditionExpr", "SubtractionExpr", "MultiplicationExpr", "DivisionExpr" -> newIntType();
+            case "AndExpr", "LessExpr", "EqualsExpr" -> newBooleanType();
+            case "MethodCall", "LocalMethodCall" -> {
+                String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
+                if (!table.getMethods().contains(method)) yield new Type("unknown", false);
+                yield table.getReturnType(method);
+            }
+            case "ClassType", "IntType", "BooleanType", "IntArrayType", "BooleanArrayType", "VarArgInt", "VarargParam" ->
+                    convertType(node);
+            default -> new Type("unknown", false);
+        };
     }
 }

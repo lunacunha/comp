@@ -1,0 +1,7 @@
+class VarNamedLength {
+    public int test() {
+        int length ;
+        length = 5;
+        return length;
+    }
+}

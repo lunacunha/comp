@@ -1,0 +1,8 @@
+import java.util.ArrayList;
+import java.util.ArrayList;
+
+class DuplicateImports {
+    public int test() {
+        return 0;
+    }
+}

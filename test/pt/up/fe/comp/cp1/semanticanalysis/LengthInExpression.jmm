@@ -1,0 +1,11 @@
+class LengthExprTest {
+    public int[] makeArray() {
+        return new int[5];
+    }
+
+    public int computeSize() {
+        int[] nums = makeArray();
+        int sizePlusOne = nums.length + 1;
+        return sizePlusOne;
+    }
+}
