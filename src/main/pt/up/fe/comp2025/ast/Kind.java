@@ -53,6 +53,7 @@ public enum Kind {
     EQUALS_EXPR,
     INTEGER_LITERAL,
     BOOLEAN_LITERAL,
+    NEGATION_EXPR,
     VAR_REF_EXPR;
 
     private final String name;

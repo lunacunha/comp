@@ -41,13 +41,11 @@ public class JmmSymbolTableBuilder {
         List<String> imports = new ArrayList<>();
 
         for (JmmNode importDecl : root.getChildren(Kind.IMPORT_DECL.getNodeName())) {
-            var parts = importDecl.getChildren(Kind.IMPORT_PART.getNodeName())
-                    .stream()
-                    .flatMap(p -> Arrays.stream(p.get("name").split(",")))
-                    .map(String::trim)
-                    .collect(Collectors.toList());
-
-            imports.add(String.join(".", parts));
+            List<JmmNode> parts = importDecl.getChildren(Kind.IMPORT_PART.getNodeName());
+            String fullImport = parts.stream()
+                    .map(p -> p.get("ID"))
+                    .collect(Collectors.joining("."));
+            imports.add(fullImport);
         }
 
         return imports;
@@ -180,7 +178,7 @@ public class JmmSymbolTableBuilder {
 
             if (foundVararg && parameters.size() > 1) {
                 Symbol lastParam = parameters.get(parameters.size() - 1);
-                if (!lastParam.getType().isArray()) {
+                if (!lastParam.getType().getName().equals("int...")) {
                     reports.add(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
                             "Vararg parameter must be last in method '" + methodName + "'", null));
                 }

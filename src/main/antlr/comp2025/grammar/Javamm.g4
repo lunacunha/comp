@@ -107,19 +107,18 @@ expr
     | expr DIV expr                                                       #DivisionExpr
     | expr AND expr                                                       #AndExpr
     | expr LESS_THAN expr                                                 #LessThanExpr
-    | expr '.' name=ID                                                         #FieldAccess
+    | expr '.' name=ID                                                    #FieldAccess
     | expr LEFT_BRACKET expr RIGHT_BRACKET                                #ArrayAccess
-    | expr '.' name=ID                                                   #ArrayLength
     | LEFT_BRACKET (expr (',' expr)*)? RIGHT_BRACKET                      #ArrayInit
     | expr '.' name=ID LEFT_PARENTHESES (expr (',' expr)*)? RIGHT_PARENTHESES  #MethodCall
     | 'new' INT LEFT_BRACKET expr RIGHT_BRACKET                           #NewArray
     | 'new' name=ID LEFT_PARENTHESES RIGHT_PARENTHESES                         #NewObject
-    | NOT expr                                                            #Negate
+    | NOT expr                                                            #NegationExpr
     | LEFT_PARENTHESES expr RIGHT_PARENTHESES                             #ParenthesesExpr
     | TRUE                                                                #BooleanLiteral
     | FALSE                                                               #BooleanLiteral
     | INTEGER                                                             #IntegerLiteral
-    | name=ID                                                                  #VarRefExpr
+    | name=ID                                                             #VarRefExpr
     | 'this'                                                              #ThisExpr
     ;
 

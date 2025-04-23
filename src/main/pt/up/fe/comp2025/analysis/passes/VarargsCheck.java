@@ -20,7 +20,7 @@ public class VarargsCheck extends AnalysisVisitor {
     }
 
     private boolean isVararg(Type type) {
-        return type.isArray() && type.getName().equals("int");
+        return type.isArray() && type.getName().equals("int...");
     }
 
     private Void visitMethod(JmmNode method, SymbolTable table) {

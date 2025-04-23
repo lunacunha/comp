@@ -21,8 +21,7 @@ public class ReturnStatementCheck extends AnalysisVisitor {
     private Void checkReturn(JmmNode method, SymbolTable table) {
         String methodName = method.get("name");
         Type methodType = table.getReturnType(methodName);
-        System.out.println(methodName);
-        System.out.println(methodType);
+
 
         if ("main".equals(methodName)) return null; // ignore main
 

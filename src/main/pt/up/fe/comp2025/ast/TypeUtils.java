@@ -44,10 +44,8 @@ public class TypeUtils {
                 return newBooleanArrayType();
             case "ClassType":
                 return new Type(typeNode.get("name"), false);
-            case "VarArgInt":
-                return new Type("int", true);
-            case "VarargParam":
-                return new Type("int", true);
+            case "VarArgInt", "VarargParam":
+                return new Type("int...", true);
             case "VoidType":
                 return new Type("void", false);
             default:
@@ -64,7 +62,7 @@ public class TypeUtils {
     }
 
     public static boolean isValidVararg(Type type) {
-        return type.isArray() && type.getName().equals("int");
+        return type.getName().equals("int...");
     }
 
     public static boolean isPrimitive(String typeName) {
@@ -120,7 +118,7 @@ public class TypeUtils {
 
     public Type getExprType(JmmNode node) {
         return switch (node.getKind()) {
-            case "IntegerLiteral" -> newIntType();
+            case "FieldAccess", "IntegerLiteral" -> newIntType();
             case "BooleanLiteral" -> newBooleanType();
             case "VarRefExpr" -> getVarType(node.get("name"), "main"); // ou passa o método atual
             case "ThisExpr" -> new Type(table.getClassName(), false);

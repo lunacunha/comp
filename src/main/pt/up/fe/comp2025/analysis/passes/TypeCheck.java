@@ -47,16 +47,15 @@ public class TypeCheck extends AnalysisVisitor {
         // Method calls
         addVisit("MethodCall", this::visitMethodCall);
         addVisit("LocalMethodCall", this::visitMethodCall);
+
+        addVisit(Kind.NEGATION_EXPR.getNodeName(), this::visitNegationExpr);
+
     }
 
     @Override
     public Void visit(JmmNode node, SymbolTable table) {
-        System.out.println(">> [DEBUG] Visiting node: " + node.getKind() + " @ line: " + node.getLine() + ", col: " + node.getColumn());
-        System.out.println("   [INFO] Node attributes: " + node.getAttributes());
-        System.out.println("   [INFO] Node children: " + node.getChildren().stream().map(JmmNode::getKind).toList());
         this.symbolTable = table;
         this.typeUtils = new TypeUtils(table);
-        System.out.println(">> [DEBUG] Visiting node: " + node.getKind());
         return super.visit(node, table);
     }
 
@@ -78,9 +77,9 @@ public class TypeCheck extends AnalysisVisitor {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
                             "Vararg parameter must be last in method '" + currentMethod + "'", null));
                 }
-                if (!paramType.getName().equals("int")) {
+                if (!paramType.getName().equals("int...")) {
                     addReport(Report.newError(Stage.SEMANTIC, method.getLine(), method.getColumn(),
-                            "Vararg parameter in method '" + currentMethod + "' must be of type int", null));
+                            "Vararg parameter in method '" + currentMethod + "' must be of type int...", null));
                 }
                 foundVararg = true;
             }
@@ -90,7 +89,7 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
     private boolean isVararg(Type type) {
-        return type.isArray() && type.getName().equals("int");
+        return type.isArray() && type.getName().equals("int...");
     }
 
 
@@ -114,7 +113,6 @@ public class TypeCheck extends AnalysisVisitor {
         String varName = assign.get("name");
         Type left = typeUtils.getVarType(varName, currentMethod);
         Type right = inferType(assign.getChild(0));
-        System.out.println(">> [DEBUG] Assignment: left = " + left + ", right = " + right);
 
         if (assign.getChild(0).getKind().equals("ArrayInit")) {
             if (!left.isArray() || !left.getName().equals("int")) {
@@ -123,16 +121,13 @@ public class TypeCheck extends AnalysisVisitor {
             }
         }
 
-        System.out.println(">> [DEBUG] Assign: left = " + left + ", right = " + right);
 
         if (!right.getName().equals("unknown") && !typeUtils.isCompatible(left, right)) {
 
             boolean leftImported = symbolTable.getImports().stream().anyMatch(i -> i.endsWith(left.getName()));
             boolean rightImported = symbolTable.getImports().stream().anyMatch(i -> i.endsWith(right.getName()));
-            System.out.println(">> [DEBUG] Assuming compatibility between imported types '" + leftImported + "' and '" + rightImported + "'" + symbolTable.getImports());
 
             if (leftImported && rightImported) {
-                System.out.println(">> [DEBUG] Assuming compatibility between imported types '" + left + "' and '" + right + "'");
                 return null;
             }
 
@@ -160,7 +155,7 @@ public class TypeCheck extends AnalysisVisitor {
             case "MultiplicationExpr" -> "*";
             case "DivisionExpr" -> "/";
             case "AndExpr" -> "&&";
-            case "LessExpr" -> "<";
+            case "LessThanExpr" -> "<";
             case "EqualsExpr" -> "==";
             default -> "unknown";
         };
@@ -218,9 +213,8 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
     private Void visitWhile(JmmNode whileStmt, SymbolTable table) {
-        Type condition = inferType(whileStmt.getChild(0));
 
-        System.out.println(">> [DEBUG] While condition type: " + condition);
+        Type condition = inferType(whileStmt.getChild(0));
 
         if (!condition.getName().equals("unknown") &&
                 (!TypeUtils.isBoolean(condition) || condition.isArray())) {
@@ -283,13 +277,16 @@ public class TypeCheck extends AnalysisVisitor {
         }
 
         if (!localMethod) {
-            System.out.println(">> [DEBUG] Method '" + methodName + "' assumed valid due to imports or inheritance.");
             return null;
         }
         List<Symbol> params = symbolTable.getParameters(methodName);
+        for (JmmNode child : call.getChildren()) {
+        }
+
         List<JmmNode> args = call.getChildren().stream()
-                .filter(child -> !child.getKind().equals("MethodName"))
+                .filter(child -> !Set.of("MethodName", "ThisExpr").contains(child.getKind()))
                 .collect(Collectors.toList());
+
 
         boolean hasVararg = typeUtils.hasVarargs(methodName);
         int fixedParams = hasVararg ? params.size() - 1 : params.size();
@@ -314,17 +311,46 @@ public class TypeCheck extends AnalysisVisitor {
         return null;
     }
 
+    private Void visitNegationExpr(JmmNode node, SymbolTable table) {
+        Type operand = inferType(node.getChild(0));
+
+        if (!TypeUtils.isBoolean(operand) || operand.isArray()) {
+            addReport(Report.newError(Stage.SEMANTIC, node.getLine(), node.getColumn(),
+                    "Unary '!' requires boolean operand. Got: " + operand, null));
+        }
+
+        return null;
+    }
+
+
     private Type inferType(JmmNode node) {
-        System.out.println(">> [inferType] Node kind = " + node.getKind());
+        System.out.println(node.getKind());
 
         return switch (node.getKind()) {
             case "IntegerLiteral" -> {
-                System.out.println(">> [inferType] IntegerLiteral");
                 yield TypeUtils.newIntType();
+            }
+            case "FieldAccess" -> {
+                String fieldName = node.get("name");
+
+                if (fieldName.equals("length")) {
+                    Type targetType = inferType(node.getChild(0));
+
+                    // Verifica se estamos a aceder ao length de um array
+                    if (targetType.isArray()) {
+                        yield new Type("int", false); // `.length` retorna sempre int
+                    } else {
+                        addReport(Report.newError(Stage.SEMANTIC, node.getLine(), node.getColumn(),
+                                "Trying to access '.length' of non-array variable: " + targetType, null));
+                        yield new Type("unknown", false);
+                    }
+                }
+                yield new Type("unknown", false);
             }
             case "BooleanLiteral" -> TypeUtils.newBooleanType();
             case "VarRefExpr" -> {
                 String varName = node.get("name");
+
 
                 if (symbolTable.getMethods().contains(varName)) {
                     yield new Type("unknown", false); // ignora
@@ -346,9 +372,9 @@ public class TypeCheck extends AnalysisVisitor {
                 }
                 yield new Type(symbolTable.getClassName(), false);
             }
-            case "NewArrayExpr" -> TypeUtils.newIntArrayType();
+            case "NewArray" -> TypeUtils.newIntArrayType();
             case "NewObjectExpr" -> new Type(node.get("className"), false);
-            case "ArrayAccessExpr" -> {
+            case "ArrayAccess" -> {
                 Type arr = inferType(node.getChild(0));
                 yield arr.isArray() ? new Type(arr.getName(), false) : new Type("unknown", false);
             }
@@ -365,13 +391,15 @@ public class TypeCheck extends AnalysisVisitor {
                 Type elemType = inferType(node.getChild(0));
                 yield new Type(elemType.getName(), true);
             }
-            case "Varargs", "VarArg", "VarArgInt" -> TypeUtils.newIntType();
+            case "Varargs", "VarArg", "VarArgInt" -> new Type("int...", true);
             case "VarArgBool" -> new Type("boolean", true);
+            case "NegationExpr" -> TypeUtils.newBooleanType();
             case "MethodCall", "LocalMethodCall" -> {
                 String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
                 if (!symbolTable.getMethods().contains(method)) yield new Type("unknown", false);
                 yield symbolTable.getReturnType(method);
             }
+
             default -> new Type("unknown", false);
         };
     }
