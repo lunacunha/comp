@@ -1,0 +1,5 @@
+class MultipleVarargsParameters {
+    public int testMethod(int... varargs1, int... varargs2) { // Error: only one varargs parameter allowed
+        return 0;
+    }
+}

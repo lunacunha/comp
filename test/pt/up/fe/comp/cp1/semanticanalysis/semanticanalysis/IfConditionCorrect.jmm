@@ -1,0 +1,10 @@
+class WhileConditionCorrect {
+    public int test() {
+        int i ;
+        i = 0;
+        if (i < 5) {
+            i = i + 1;
+        }
+        return i;
+    }
+}

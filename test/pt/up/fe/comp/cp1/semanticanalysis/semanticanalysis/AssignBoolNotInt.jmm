@@ -1,0 +1,9 @@
+class Test {
+    public boolean method() {
+        boolean b;
+        int a;
+        a = 1;
+        b = !a;
+        return b;
+    }
+}

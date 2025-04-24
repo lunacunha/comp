@@ -1,0 +1,11 @@
+class BoolVarCorrect {
+    public boolean test() {
+        boolean a;
+        boolean b;
+        boolean c;
+        a = true;
+        b = false;
+        c = a && b;
+        return c;
+    }
+}

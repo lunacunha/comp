@@ -1,0 +1,6 @@
+class VarargsInVariable {
+    public int test() {
+        int... illegal; // Error: varargs not allowed in variable declarations
+        return 0;
+    }
+}

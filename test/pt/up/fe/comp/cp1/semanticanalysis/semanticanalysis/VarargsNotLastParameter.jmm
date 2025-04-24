@@ -1,0 +1,5 @@
+class VarargsNotLastParameter {
+    public int testMethod(int... varargs, int regular) { // Error: varargs must be the last parameter
+        return 0;
+    }
+}

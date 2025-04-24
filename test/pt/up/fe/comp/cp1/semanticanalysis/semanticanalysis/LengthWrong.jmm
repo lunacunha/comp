@@ -1,0 +1,6 @@
+class LengthExprTest {
+    public int computeSize() {
+        int nums ;
+        return nums.length;
+    }
+}

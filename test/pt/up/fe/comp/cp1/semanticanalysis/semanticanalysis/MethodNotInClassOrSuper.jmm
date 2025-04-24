@@ -1,0 +1,5 @@
+class MethodNotInClassOrSuper {
+    public int test() {
+        return this.nonExistentMethod(); // Error: method doesn't exist in class or super
+    }
+}

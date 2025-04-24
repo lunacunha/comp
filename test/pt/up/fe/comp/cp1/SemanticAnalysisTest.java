@@ -419,12 +419,12 @@ public class SemanticAnalysisTest {
     @Test
     public void lengthCall() {
         var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/CallLength.jmm"));
-        TestUtils.mustFail(result);
+        TestUtils.noErrors(result);
     }
     @Test
     public void lengthInExpression() {
         var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/LengthInExpression.jmm"));
-        TestUtils.mustFail(result);
+        TestUtils.noErrors(result);
     }
     @Test
     public void StatementsAfterReturn() {
@@ -444,6 +444,11 @@ public class SemanticAnalysisTest {
     @Test
     public void intWithoutReturn() {
         var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/IntWithoutReturn.jmm"));
+        TestUtils.mustFail(result);
+    }
+    @Test
+    public void LengthWrong() {
+        var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp1/semanticanalysis/LengthWrong.jmm"));
         TestUtils.mustFail(result);
     }
 

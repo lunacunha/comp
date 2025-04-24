@@ -1,0 +1,6 @@
+class Test2 {
+    public int test() {
+        int a;
+        a = 10;
+    }
+}

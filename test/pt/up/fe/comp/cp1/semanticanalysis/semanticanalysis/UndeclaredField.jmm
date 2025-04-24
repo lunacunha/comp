@@ -1,0 +1,6 @@
+class UndeclaredField {
+    public int testUndeclaredField() {
+        this.nonExistentField = 10; // Error: nonExistentField is not a field of this class
+        return 0;
+    }
+}

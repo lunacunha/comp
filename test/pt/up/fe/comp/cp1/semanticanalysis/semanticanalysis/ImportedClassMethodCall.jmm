@@ -1,0 +1,11 @@
+import ExternalLib;
+
+class ImportedClassMethodCall {
+    public int test() {
+        int result;
+
+        result = ExternalLib.staticMethod(); // Valid: method call on imported class
+
+        return result;
+    }
+}

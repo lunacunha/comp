@@ -1,0 +1,11 @@
+class ArrayInitializerInReturn {
+    public int[] getArray() {
+        return [7, 8, 9]; // Valid: array initializer in return statement
+    }
+
+    public int test() {
+        int[] arr;
+        arr = this.getArray();
+        return arr[0];
+    }
+}
