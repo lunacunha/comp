@@ -44,7 +44,7 @@ public class TypeUtils {
                 return newBooleanArrayType();
             case "ClassType":
                 return new Type(typeNode.get("name"), false);
-            case "VarArgInt", "VarargParam":
+            case "VarArgInt", "VarargParam", "VarArgsTest":
                 return new Type("int...", true);
             case "VoidType":
                 return new Type("void", false);
@@ -54,7 +54,7 @@ public class TypeUtils {
     }
 
     public static boolean isInt(Type t) {
-        return t.getName().equals("int") && !t.isArray();
+        return t.getName().startsWith("int") && !t.isArray();
     }
 
     public static boolean isBoolean(Type t) {
@@ -75,6 +75,8 @@ public class TypeUtils {
         if (actual.getName().equals(table.getClassName()) && expected.getName().equals(table.getSuper())) {
             return true;
         }
+        System.out.println("IS COMPATIBLE: " + expected  + " " + expected.getName().startsWith("VarArg") + ", " + actual.equals(new Type("int...",true)));
+        if (expected.getName().startsWith("VarArg") && actual.equals(new Type("int...",true))) return true;
 
         boolean expectedImported = table.getImports().stream().anyMatch(imp -> imp.endsWith("." + expected.getName()));
         boolean actualImported = table.getImports().stream().anyMatch(imp -> imp.endsWith("." + actual.getName()));

@@ -137,7 +137,6 @@ public class JmmSymbolTableBuilder {
 
     private Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
         Map<String, List<Symbol>> paramsMap = new HashMap<>();
-
         for (JmmNode method : classDecl.getChildren(Kind.METHOD_DECL.getNodeName())) {
             String methodName = method.getOptional("name").orElse("main");
             List<Symbol> parameters = new ArrayList<>();

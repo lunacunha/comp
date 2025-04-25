@@ -231,11 +231,12 @@ public class TypeCheck extends AnalysisVisitor {
         Type arr = inferType(access.getChild(0));
         Type index = inferType(access.getChild(1));
 
-        if (!arr.getName().equals("unknown") && !arr.isArray()) {
+        if (!arr.isArray()) {
+            System.out.println("ARRAY: " + access.getChild(0));
             addReport(Report.newError(Stage.SEMANTIC, access.getLine(), access.getColumn(),
                     "Trying to access a non-array variable: " + arr, null));
         }
-        if (!index.getName().equals("unknown") && !TypeUtils.isInt(index)) {
+        if (!TypeUtils.isInt(index)) {
             addReport(Report.newError(Stage.SEMANTIC, access.getLine(), access.getColumn(),
                     "Array index must be of type int, got: " + index, null));
         }
@@ -279,15 +280,17 @@ public class TypeCheck extends AnalysisVisitor {
         if (!localMethod) {
             return null;
         }
-        List<Symbol> params = symbolTable.getParameters(methodName);
-        for (JmmNode child : call.getChildren()) {
-        }
 
+        List<Symbol> params = symbolTable.getParameters(methodName);
+        // Collect argument nodes:
         List<JmmNode> args = call.getChildren().stream()
                 .filter(child -> !Set.of("MethodName", "ThisExpr").contains(child.getKind()))
                 .collect(Collectors.toList());
-
-
+        if (localMethod){
+            args = call.getChildren().stream().skip(1)
+                    .filter(child -> !Set.of("MethodName", "ThisExpr").contains(child.getKind()))
+                    .collect(Collectors.toList());
+        }
         boolean hasVararg = typeUtils.hasVarargs(methodName);
         int fixedParams = hasVararg ? params.size() - 1 : params.size();
 
@@ -308,6 +311,7 @@ public class TypeCheck extends AnalysisVisitor {
                                 "': expected " + expected + ", got " + actual, null));
             }
         }
+
         return null;
     }
 
@@ -324,9 +328,8 @@ public class TypeCheck extends AnalysisVisitor {
 
 
     private Type inferType(JmmNode node) {
-        System.out.println(node.getKind());
 
-        return switch (node.getKind()) {
+        Type ret =  switch (node.getKind()) {
             case "IntegerLiteral" -> {
                 yield TypeUtils.newIntType();
             }
@@ -334,7 +337,8 @@ public class TypeCheck extends AnalysisVisitor {
                 String fieldName = node.get("name");
 
                 if (fieldName.equals("length")) {
-                    Type targetType = inferType(node.getChild(0));
+                    JmmNode target = node.getChild(0);
+                    Type targetType = inferType(target);
 
                     // Verifica se estamos a aceder ao length de um array
                     if (targetType.isArray()) {
@@ -344,13 +348,13 @@ public class TypeCheck extends AnalysisVisitor {
                                 "Trying to access '.length' of non-array variable: " + targetType, null));
                         yield new Type("unknown", false);
                     }
+                } else {
+                    yield new Type("unknown", false); // you can later add support for object fields
                 }
-                yield new Type("unknown", false);
             }
             case "BooleanLiteral" -> TypeUtils.newBooleanType();
             case "VarRefExpr" -> {
                 String varName = node.get("name");
-
 
                 if (symbolTable.getMethods().contains(varName)) {
                     yield new Type("unknown", false); // ignora
@@ -370,13 +374,17 @@ public class TypeCheck extends AnalysisVisitor {
                             "'this' cannot be used in a static method like 'main'", null));
                     yield new Type("unknown", false);
                 }
-                yield new Type(symbolTable.getClassName(), false);
+                else yield new Type(symbolTable.getClassName(), false);
             }
             case "NewArray" -> TypeUtils.newIntArrayType();
-            case "NewObjectExpr" -> new Type(node.get("className"), false);
+            case "NewObject" -> {
+                if (node.get("name").startsWith("VarArgs")) yield new Type("int...", true);
+                else yield new Type(node.get("name"), false);
+            }
             case "ArrayAccess" -> {
                 Type arr = inferType(node.getChild(0));
-                yield arr.isArray() ? new Type(arr.getName(), false) : new Type("unknown", false);
+                if (arr.getName().equals("int...")) yield new Type("int...",false);
+                else yield arr.isArray() ? new Type(arr.getName(), false) : new Type("unknown", false);
             }
             case "BinaryExpr" -> {
                 String op = node.get("op");
@@ -384,23 +392,24 @@ public class TypeCheck extends AnalysisVisitor {
                         TypeUtils.newBooleanType() : TypeUtils.newIntType();
             }
             case "AdditionExpr", "SubtractionExpr", "MultiplicationExpr", "DivisionExpr" -> TypeUtils.newIntType();
-            case "AndExpr", "LessExpr", "EqualsExpr" -> TypeUtils.newBooleanType();
+            case "AndExpr", "LessThanExpr", "EqualsExpr" -> TypeUtils.newBooleanType();
 
             case "ArrayInit" -> {
-                if (node.getChildren().isEmpty()) yield TypeUtils.newIntArrayType();
                 Type elemType = inferType(node.getChild(0));
-                yield new Type(elemType.getName(), true);
+                if (node.getChildren().isEmpty()) yield TypeUtils.newIntArrayType();
+                else yield new Type(elemType.getName(), true);
             }
-            case "Varargs", "VarArg", "VarArgInt" -> new Type("int...", true);
+            case "VarArgs", "VarArg", "VarArgInt","VarArgsTest" -> new Type("int...", true);
             case "VarArgBool" -> new Type("boolean", true);
             case "NegationExpr" -> TypeUtils.newBooleanType();
             case "MethodCall", "LocalMethodCall" -> {
                 String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
                 if (!symbolTable.getMethods().contains(method)) yield new Type("unknown", false);
-                yield symbolTable.getReturnType(method);
+                else yield symbolTable.getReturnType(method);
             }
 
             default -> new Type("unknown", false);
         };
+        return ret;
     }
 }

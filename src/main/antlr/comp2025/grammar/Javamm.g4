@@ -64,21 +64,22 @@ varDecl
     ;
 
 type
-    : INT '...'                  #VarArgInt
-    | BOOLEAN '...'               #VarArgBool
-    | INT                         #IntType
-    | BOOLEAN                     #BooleanType
-    | name=ID                          #ClassType
-    | INT LEFT_BRACKET RIGHT_BRACKET #IntArrayType
-    | name='void' #VoidType
+    : INT '...'                         #VarArgInt
+    | BOOLEAN '...'                     #VarArgBool
+    | INT                               #IntType
+    | BOOLEAN                           #BooleanType
+    | name=ID                                #ClassType
+    | name=ID LEFT_BRACKET RIGHT_BRACKET     #ClassArrayType
+    | INT LEFT_BRACKET RIGHT_BRACKET    #IntArrayType
+    | 'void'                            #VoidType
     ;
 
 
 methodDecl
     : (PUBLIC)? type name=ID LEFT_PARENTHESES (paramDecl (',' paramDecl)*)? RIGHT_PARENTHESES
-            LEFT_BRACE varDecl* stmt* RIGHT_BRACE
-    | (PUBLIC)? 'static' 'void' name=ID LEFT_PARENTHESES ID LEFT_BRACKET RIGHT_BRACKET ID RIGHT_PARENTHESES
-      LEFT_BRACE varDecl* stmt* RIGHT_BRACE
+        LEFT_BRACE varDecl* stmt* RIGHT_BRACE
+    | (PUBLIC)? 'static' 'void' name=ID LEFT_PARENTHESES paramDecl RIGHT_PARENTHESES
+        LEFT_BRACE varDecl* stmt* RIGHT_BRACE
     ;
 
 paramDecl
@@ -101,25 +102,26 @@ stmt
     ;
 
 expr
-    : expr MULT expr                                                      #MultiplicationExpr
-    | expr PLUS expr                                                      #AdditionExpr
-    | expr SUB expr                                                       #SubtractionExpr
-    | expr DIV expr                                                       #DivisionExpr
-    | expr AND expr                                                       #AndExpr
-    | expr LESS_THAN expr                                                 #LessThanExpr
-    | expr '.' name=ID                                                    #FieldAccess
-    | expr LEFT_BRACKET expr RIGHT_BRACKET                                #ArrayAccess
-    | LEFT_BRACKET (expr (',' expr)*)? RIGHT_BRACKET                      #ArrayInit
-    | expr '.' name=ID LEFT_PARENTHESES (expr (',' expr)*)? RIGHT_PARENTHESES  #MethodCall
-    | 'new' INT LEFT_BRACKET expr RIGHT_BRACKET                           #NewArray
+    : expr '.' name=ID LEFT_PARENTHESES (expr (',' expr)*)? RIGHT_PARENTHESES  #MethodCall
+    | expr '.' name=ID                                                         #FieldAccess
+    | expr LEFT_BRACKET expr RIGHT_BRACKET                                     #ArrayAccess
+    | expr MULT expr                                                           #MultiplicationExpr
+    | expr PLUS expr                                                           #AdditionExpr
+    | expr SUB expr                                                            #SubtractionExpr
+    | expr DIV expr                                                            #DivisionExpr
+    | expr AND expr                                                            #AndExpr
+    | expr LESS_THAN expr                                                      #LessThanExpr
+    | LEFT_BRACKET (expr (',' expr)*)? RIGHT_BRACKET                           #ArrayInit
+    | 'new' INT LEFT_BRACKET expr RIGHT_BRACKET                                #NewArray
     | 'new' name=ID LEFT_PARENTHESES RIGHT_PARENTHESES                         #NewObject
-    | NOT expr                                                            #NegationExpr
-    | LEFT_PARENTHESES expr RIGHT_PARENTHESES                             #ParenthesesExpr
-    | TRUE                                                                #BooleanLiteral
-    | FALSE                                                               #BooleanLiteral
-    | INTEGER                                                             #IntegerLiteral
-    | name=ID                                                             #VarRefExpr
-    | 'this'                                                              #ThisExpr
+    | NOT expr                                                                 #NegationExpr
+    | LEFT_PARENTHESES expr RIGHT_PARENTHESES                                  #ParenthesesExpr
+    | TRUE                                                                     #BooleanLiteral
+    | FALSE                                                                    #BooleanLiteral
+    | INTEGER                                                                  #IntegerLiteral
+    | name=ID                                                                  #VarRefExpr
+    | 'this'                                                                   #ThisExpr
     ;
+
 
 
