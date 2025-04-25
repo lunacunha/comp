@@ -1,7 +1,0 @@
-class VarargsInFieldDeclaration {
-    int... illegal; // Error: varargs not allowed in field declarations
-
-    public int test() {
-        return 0;
-    }
-}

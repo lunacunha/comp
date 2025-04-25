@@ -1,9 +1,0 @@
-class ThisAsObject {
-    public int testThisAsObject() {
-        ThisAsObject obj;
-
-        obj = this; // Valid: 'this' can be used as object of same type
-
-        return 0;
-    }
-}

@@ -1,7 +1,0 @@
-import SuperClass;
-
-class MethodInSuperClass extends SuperClass {
-    public int test() {
-        return this.superClassMethod(10); // Valid: method assumed to exist in super class
-    }
-}

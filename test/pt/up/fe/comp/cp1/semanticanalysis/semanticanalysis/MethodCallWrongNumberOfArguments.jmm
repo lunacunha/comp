@@ -1,9 +1,0 @@
-class MethodCallWrongNumberOfArguments {
-    public int multiply(int a, int b) {
-        return a * b;
-    }
-
-    public int test() {
-        return this.multiply(5); // Error: wrong number of arguments
-    }
-}

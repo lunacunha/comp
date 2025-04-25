@@ -1,7 +1,0 @@
-class LengthTest {
-    public int getLength() {
-        int[] nums ;
-        nums = new int[10];
-        return nums.length + 4;
-    }
-}

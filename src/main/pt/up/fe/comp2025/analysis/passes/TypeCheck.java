@@ -232,7 +232,6 @@ public class TypeCheck extends AnalysisVisitor {
         Type index = inferType(access.getChild(1));
 
         if (!arr.isArray()) {
-            System.out.println("ARRAY: " + access.getChild(0));
             addReport(Report.newError(Stage.SEMANTIC, access.getLine(), access.getColumn(),
                     "Trying to access a non-array variable: " + arr, null));
         }

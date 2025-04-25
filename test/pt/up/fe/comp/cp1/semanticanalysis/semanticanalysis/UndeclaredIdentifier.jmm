@@ -1,6 +1,0 @@
-class UndeclaredIdentifier {
-    public int testUndeclaredIdentifier() {
-        undeclaredVar = 5; // Error: undeclaredVar is not declared
-        return 0;
-    }
-}

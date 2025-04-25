@@ -1,9 +1,0 @@
-class NonImportedClassMethodCall {
-    public int test() {
-        int result;
-
-        result = NonImportedClass.staticMethod(); // Error: class not imported
-
-        return result;
-    }
-}

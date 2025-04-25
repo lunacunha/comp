@@ -75,7 +75,6 @@ public class TypeUtils {
         if (actual.getName().equals(table.getClassName()) && expected.getName().equals(table.getSuper())) {
             return true;
         }
-        System.out.println("IS COMPATIBLE: " + expected  + " " + expected.getName().startsWith("VarArg") + ", " + actual.equals(new Type("int...",true)));
         if (expected.getName().startsWith("VarArg") && actual.equals(new Type("int...",true))) return true;
 
         boolean expectedImported = table.getImports().stream().anyMatch(imp -> imp.endsWith("." + expected.getName()));
