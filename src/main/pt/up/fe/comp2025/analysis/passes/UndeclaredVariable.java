@@ -36,6 +36,8 @@ public class UndeclaredVariable extends AnalysisVisitor {
             declared = true;
         } else if (table.getFields().stream().anyMatch(f -> f.getName().equals(name))) {
             declared = true;
+        } else if (table.getImports().stream().anyMatch(f -> f.equals(name))) {
+            declared = true;
         }
 
         if (!declared && !name.equals("this")) {

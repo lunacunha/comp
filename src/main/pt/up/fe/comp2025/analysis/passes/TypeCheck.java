@@ -383,7 +383,7 @@ public class TypeCheck extends AnalysisVisitor {
             }
             case "ArrayAccess" -> {
                 Type arr = inferType(node.getChild(0));
-                if (arr.getName().equals("int...")) yield new Type("int...",false);
+                if (arr.getName().equals("int...")) yield new Type("int",false);
                 else yield arr.isArray() ? new Type(arr.getName(), false) : new Type("unknown", false);
             }
             case "BinaryExpr" -> {

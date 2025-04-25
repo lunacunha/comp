@@ -322,7 +322,7 @@ public class SymbolTableTest {
         assertEquals(1, table.getParameters("processArray").size());
         assertEquals(1, table.getParameters("sum").size());
 
-        verifySymbol(table.getParameters("sum").getFirst(), "numbers", "int...", false);
+        verifySymbol(table.getParameters("sum").getFirst(), "numbers", "int...", true);
 
         assertTrue(!table.getLocalVariables("calculate").isEmpty());
         assertTrue(!table.getLocalVariables("main").isEmpty());
