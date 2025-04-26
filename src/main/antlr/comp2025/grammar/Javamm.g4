@@ -7,6 +7,7 @@ grammar Javamm;
 CLASS : 'class' ;
 INT : 'int' ;
 PUBLIC : 'public' ;
+STATIC : 'static' ;
 RETURN : 'return' ;
 IMPORT : 'import' ;
 
@@ -76,9 +77,7 @@ type
 
 
 methodDecl
-    : (PUBLIC)? type name=ID LEFT_PARENTHESES (paramDecl (',' paramDecl)*)? RIGHT_PARENTHESES
-        LEFT_BRACE varDecl* stmt* RIGHT_BRACE
-    | (PUBLIC)? 'static' 'void' name=ID LEFT_PARENTHESES paramDecl RIGHT_PARENTHESES
+    : (pub=PUBLIC)? (stat=STATIC)? type  name=ID LEFT_PARENTHESES (paramDecl (',' paramDecl)*)? RIGHT_PARENTHESES
         LEFT_BRACE varDecl* stmt* RIGHT_BRACE
     ;
 
@@ -118,7 +117,7 @@ expr
     | LEFT_PARENTHESES expr RIGHT_PARENTHESES                                  #ParenthesesExpr
     | TRUE                                                                     #BooleanLiteral
     | FALSE                                                                    #BooleanLiteral
-    | INTEGER                                                                  #IntegerLiteral
+    | value=INTEGER                                                            #IntegerLiteral
     | name=ID                                                                  #VarRefExpr
     | 'this'                                                                   #ThisExpr
     ;

@@ -31,8 +31,20 @@ public class OptUtils {
     }
 
     public String toOllirType(JmmNode typeNode) {
-        TYPE.checkOrThrow(typeNode);
-        return toOllirType(types.convertType(typeNode));
+        String ret = "";
+        switch (typeNode.getKind()){
+            //TODO: Faltam tipos
+            case "IntType", "IntegerLiteral":
+                ret += ".i32";
+                break;
+            case "ClassArrayType":
+                ret += ".array." + typeNode.get("name");
+                break;
+            default:
+                ret += ".V";
+                break;
+        }
+        return ret;
     }
 
     public String toOllirType(Type type) {
