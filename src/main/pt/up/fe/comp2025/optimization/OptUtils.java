@@ -54,7 +54,7 @@ public class OptUtils {
             case "IntArrayType":
                 ret += ".array.i32";
                 break;
-            case "BooleanLiteral":
+            case "BooleanLiteral","BooleanType":
                 ret += ".bool";
                 break;
             default:

@@ -189,15 +189,29 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private void printIfStmt(JmmNode node, StringBuilder code) {
+        // Generate labels for the "then" and "endif" blocks
         String thenLabel = ollirTypes.nextLabel("then");
         String endifLabel = ollirTypes.nextLabel("endif");
 
-        JmmNode condition = node.getChild(0); // VarRefExpr
-        String condName = condition.get("name");
+        // Get the condition of the if statement
+        JmmNode condition = node.getChild(0); // LessThanExpr or other conditions
+        String condName = "";
 
-        code.append("if (").append(condName).append(".bool) goto ").append(thenLabel).append(";\n");
+        // If the condition is a "VarRefExpr", simply handle it
+        if (condition.getKind().equals("VarRefExpr")) {
+            condName = condition.get("name");
+            code.append("if (").append(condName).append(".bool) goto ").append(thenLabel).append(";\n");
+        }
+        // If the condition is a "LessThanExpr", handle it
+        else if (condition.getKind().equals("LessThanExpr")) {
+            // Get the temporary variable from printLessExpr
+            String tmpVar = printLessExpr(condition, code);  // This generates the comparison and stores it in tmp0
 
-        // ELSE BLOCK
+            // Use the temp variable for the if condition
+            code.append("if (").append(tmpVar).append(".bool) goto ").append(thenLabel).append(";\n");
+        }
+
+        // Handle the else block (if any)
         JmmNode elseBlock = node.getChild(2); // second block is ELSE
         for (var stmt : elseBlock.getChildren()) {
             if (stmt.getKind().equals("ExprStatement")) {
@@ -206,7 +220,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         }
         code.append("goto ").append(endifLabel).append(";\n");
 
-        // THEN BLOCK
+        // Handle the then block (first block)
         code.append(thenLabel).append(":\n");
         JmmNode thenBlock = node.getChild(1); // first block is THEN
         for (var stmt : thenBlock.getChildren()) {
@@ -215,9 +229,11 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             }
         }
 
-        // ENDIF
+        // End the if statement
         code.append(endifLabel).append(":\n");
     }
+
+
 
     private void printExprStatement(JmmNode node, StringBuilder code) {
         JmmNode expr = node.getChild(0); // MethodCall
@@ -382,79 +398,147 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         }
     }
 
-    private void printLessExpr(JmmNode node, StringBuilder code) {
-        JmmNode exprNode = node.getChild(0);
-
+    private String printLessExpr(JmmNode node, StringBuilder code) {
+        // Create a new temporary variable for the comparison result
         String boolType = ".bool";
         String intType = ".i32";
-        String tmpVar = ollirTypes.nextTemp("tmp"); // generate a new temp
+        String tmpVar = ollirTypes.nextTemp("tmp"); // Generate a new temporary variable
 
-        JmmNode left = exprNode.getChild(0);
-        JmmNode right = exprNode.getChild(1);
+        JmmNode left = node.getChild(0);
+        JmmNode right = node.getChild(1);
 
-        String leftValue;
-        if (left.getKind().equals("IntegerLiteral")) {
-            leftValue = left.get("value");
-        } else {
-            leftValue = left.get("name");
-        }
+        String leftValue = (left.getKind().equals("IntegerLiteral")) ? left.get("value") : left.get("name");
+        String rightValue = (right.getKind().equals("IntegerLiteral")) ? right.get("value") : right.get("name");
 
-        String rightValue;
-        if (right.getKind().equals("IntegerLiteral")) {
-            rightValue = right.get("value");
-        } else {
-            rightValue = right.get("name");
-        }
-
-        code.append(tmpVar).append(boolType).append(" :=").append(boolType).append(" ")
+        // Generate the OLLIR code for the comparison
+        code.append(tmpVar).append(boolType).append(" :=.bool ")
                 .append(leftValue).append(intType).append(" <.bool ")
                 .append(rightValue).append(intType).append(";\n");
 
-        String varName = node.get("name");
-        code.append(varName).append(boolType).append(" :=").append(boolType).append(" ")
-                .append(tmpVar).append(boolType).append(";\n");
+        // Return the temporary variable containing the result
+        return tmpVar;
     }
 
-    private void printAssignStmt(JmmNode node, StringBuilder code){
+
+    private void printAssignStmt(JmmNode node, StringBuilder code) {
         String lhsVar = node.get("name"); // The variable being assigned to
+        String rhsVar = node.getChild(0).getKind().equals("VarRefExpr") ? node.getChild(0).get("name") : null;
 
-        switch(node.getChild(0).getKind()){
-            case "IntegerLiteral":
-                code.append(lhsVar + ".i32 :=.i32 " + node.getChild(0).get("value") + ".i32;\n");
+        boolean isField = false;
+        // Check if lhsVar is a field
+        for (int i = 0; i < table.getFields().size(); i++) {
+            if (table.getFields().get(i).getName().equals(lhsVar)) {
+                isField = true;
                 break;
-            case "VarRefExpr":
-                code.append(lhsVar + ".i32 :=.i32 " + node.getChild(0).get("name") + ".i32;\n");
+            }
+        }
+        for (var local : table.getLocalVariables(node.getAncestor(METHOD_DECL).get().get("name"))) {
+            if (local.getName().equals(lhsVar)) {
+                isField = false;
                 break;
-            case "AndExpr":
-                printAndExpr(node, code);
+            }
+        }
+        for (var param : table.getParameters(node.getAncestor(METHOD_DECL).get().get("name"))) {
+            if (param.getName().equals(lhsVar)) {
+                isField = false;
                 break;
-            case "LessThanExpr":
-                printLessExpr(node,code);
-                break;
-            case "AdditionExpr":
-                String sumResult = printAdditionExpr(node.getChild(0), code);
-                code.append(lhsVar + ".i32 :=.i32 " + sumResult + ".i32;\n");
-                break;
-            case "ArrayAccess":
-                String accessResult = printArrayAccess(node.getChild(0), code, node.getAncestor(METHOD_DECL).get().get("name"));
-                code.append(lhsVar + ".i32 :=.i32 " + accessResult + ".i32;\n");
-                break;
-            case "NewArray":
-                String type = ollirTypes.toOllirType(node.getChild(0).getChild(0));
-                String tmpArrayVar = printNewArray(node.getChild(0), code, type);
-                code.append(lhsVar + ".array" + type + " :=.array" + type + " " + tmpArrayVar + ".array" + type + ";\n");
-                break;
-            case "NewObject":
-                String tmpObjectVar = printNewObject(node.getChild(0), code);
-                String className = node.getChild(0).get("name");
-                code.append(lhsVar + "." + className + " :=." + className + " " + tmpObjectVar + "." + className + ";\n");
-                break;
+            }
+        }
 
-            default:
-                System.out.println("Unhandled assignment for: " + node.getChild(0).getKind());
-                break;
+        // Handle field assignment (putfield)
+        if (isField) {
+            if (rhsVar != null) {
+                code.append("putfield(this, ").append(lhsVar).append(".i32, ").append(rhsVar).append(".i32).V;\n");
+            } else {
+                // Field assignment with an expression on the right-hand side
+                String tmpRHS = printExpression(node.getChild(0), code);  // Compute rhs expression into a temp variable
+                code.append("putfield(this, ").append(lhsVar).append(".i32, ").append(tmpRHS).append(".i32).V;\n");
+            }
+        } else {
+            // Handle local variable assignment
+            switch (node.getChild(0).getKind()) {
+                case "IntegerLiteral":
+                    code.append(lhsVar + ".i32 :=.i32 " + node.getChild(0).get("value") + ".i32;\n");
+                    break;
+                case "VarRefExpr":
+                    code.append(lhsVar + ".i32 :=.i32 " + node.getChild(0).get("name") + ".i32;\n");
+                    break;
+                case "AndExpr":
+                    printAndExpr(node, code);
+                    break;
+                case "LessThanExpr":
+                    String tmpVar = printLessExpr(node.getChild(0), code);
+                    code.append(lhsVar + ".bool :=.bool " + tmpVar + ".bool;\n");
+                    break;
+                case "AdditionExpr":
+                    String sumResult = printAdditionExpr(node.getChild(0), code);
+                    code.append(lhsVar + ".i32 :=.i32 " + sumResult + ".i32;\n");
+                    break;
+                case "ArrayAccess":
+                    String accessResult = printArrayAccess(node.getChild(0), code, node.getAncestor(METHOD_DECL).get().get("name"));
+                    code.append(lhsVar + ".i32 :=.i32 " + accessResult + ".i32;\n");
+                    break;
+                case "NewArray":
+                    String type = ollirTypes.toOllirType(node.getChild(0).getChild(0));
+                    String tmpArrayVar = printNewArray(node.getChild(0), code, type);
+                    code.append(lhsVar + ".array" + type + " :=.array" + type + " " + tmpArrayVar + ".array" + type + ";\n");
+                    break;
+                case "NewObject":
+                    String tmpObjectVar = printNewObject(node.getChild(0), code);
+                    String className = node.getChild(0).get("name");
+                    code.append(lhsVar + "." + className + " :=." + className + " " + tmpObjectVar + "." + className + ";\n");
+                    break;
+                default:
+                    System.out.println("Unhandled assignment for: " + node.getChild(0).getKind());
+                    break;
+            }
         }
     }
+
+    // Helper method to print expressions and return the result as a temporary variable
+    private String printExpression(JmmNode exprNode, StringBuilder code) {
+        String tmpVar = ollirTypes.nextTemp("tmp");  // Generate a new temporary variable
+
+        switch (exprNode.getKind()) {
+            case "IntegerLiteral":
+                code.append(tmpVar + ".i32 :=.i32 " + exprNode.get("value") + ".i32;\n");
+                break;
+            case "VarRefExpr":
+                code.append(tmpVar + ".i32 :=.i32 " + exprNode.get("name") + ".i32;\n");
+                break;
+            case "AndExpr":
+                printAndExpr(exprNode, code);
+                break;
+            case "LessThanExpr":
+                String tmpLessThan = printLessExpr(exprNode, code);
+                code.append(tmpVar + ".bool :=.bool " + tmpLessThan + ".bool;\n");
+                break;
+            case "AdditionExpr":
+                String sumResult = printAdditionExpr(exprNode, code);
+                code.append(tmpVar + ".i32 :=.i32 " + sumResult + ".i32;\n");
+                break;
+            case "ArrayAccess":
+                String accessResult = printArrayAccess(exprNode, code, exprNode.getAncestor(METHOD_DECL).get().get("name"));
+                code.append(tmpVar + ".i32 :=.i32 " + accessResult + ".i32;\n");
+                break;
+            case "NewArray":
+                String type = ollirTypes.toOllirType(exprNode.getChild(0));
+                String tmpArrayVar = printNewArray(exprNode, code, type);
+                code.append(tmpVar + ".array" + type + " :=.array" + type + " " + tmpArrayVar + ".array" + type + ";\n");
+                break;
+            case "NewObject":
+                String tmpObjectVar = printNewObject(exprNode, code);
+                String className = exprNode.get("name");
+                code.append(tmpVar + "." + className + " :=." + className + " " + tmpObjectVar + "." + className + ";\n");
+                break;
+            default:
+                System.out.println("Unhandled expression for: " + exprNode.getKind());
+                break;
+        }
+        return tmpVar;
+    }
+
+
     private String printNewObject(JmmNode node, StringBuilder code) {
         String className = node.get("name"); // ComplexArrayAccess
         String tmpVar = ollirTypes.nextTemp(); // generate a fresh temporary variable name
@@ -554,12 +638,49 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private void printReturnStmt(JmmNode node, StringBuilder code){
             //TODO : E se não for AdditionExpr ou VarRef ?
-            if (node.getChild(0).getKind().equals("VarRefExpr")){
-                code.append("ret");
-                code.append(printVarRef(node.getChild(0).get("name"),node.getParent().get("name")));
-                code.append(";\n");
+        if (node.getChild(0).getKind().equals("VarRefExpr")) {
+            String varName = node.getChild(0).get("name");
+            String methodName = node.getAncestor(METHOD_DECL).get().get("name");
+
+            boolean isField = true;
+            // check if it is a local variable or parameter (not a field)
+            for (var local : table.getLocalVariables(methodName)) {
+                if (local.getName().equals(varName)) {
+                    isField = false;
+                    break;
+                }
             }
-            else if (node.getChild(0).getKind().equals("AdditionExpr")){
+            for (var param : table.getParameters(methodName)) {
+                if (param.getName().equals(varName)) {
+                    isField = false;
+                    break;
+                }
+            }
+
+            if (isField) {
+                // It's a field -> generate getfield first
+                String fieldType = null;
+                for (int i = 0; i < table.getFields().size();i++){
+                    if (table.getFields().get(i).getName().equals(varName)) fieldType = ollirTypes.toOllirType(table.getFields().get(i).getType());
+                }
+                String tmpVar = ollirTypes.nextTemp();
+
+                code.append(tmpVar).append(fieldType)
+                        .append(" :=").append(fieldType)
+                        .append(" getfield(this, ").append(varName).append(fieldType).append(")")
+                        .append(fieldType).append(";\n");
+
+                code.append("ret").append(fieldType).append(" ").append(tmpVar).append(fieldType).append(";\n");
+            } else {
+                // It’s a normal local var, just return it directly
+                String varType = ollirTypes.toOllirType(node.getParent().getChild(0));
+                code.append("ret").append(varType).append(" ").append(varName).append(varType).append(";\n");
+            }
+        }
+
+
+
+        else if (node.getChild(0).getKind().equals("AdditionExpr")){
                 String currentTemp = ollirTypes.nextTemp();
                 code.append(currentTemp);
                 code.append(ollirTypes.toOllirType(node.getParent().getChild(0)) + " :=");
@@ -572,9 +693,11 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                     if (j == node.getChild(0).getChildren().size() - 1) code.append(";\n");
                     else code.append("+");
                 }
-                //TODO : E se não for só o tipo de return ?
                 code.append("ret" + ollirTypes.toOllirType(node.getChild(0)) + " " + currentTemp + ollirTypes.toOllirType(node.getChild(0)));
                 code.append(";\n");
+            }
+            else if (node.getChild(0).getKind().equals("IntegerLiteral")){
+                code.append("ret.i32 " + node.getChild(0).get("value") + ".i32;\n");
             }
     }
 
@@ -582,7 +705,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         System.out.println(table);
         System.out.println(method);
         Type type = getRefType(var, method);
-        System.out.println(type);
         String str = ollirTypes.toOllirType(type) + " " + var + ollirTypes.toOllirType(type);
         return str;
     }
@@ -617,7 +739,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         code.append(tempVar).append(intType).append(" :=").append(intType).append(" ").append(expr.toString()).append(";\n");
 
-        return tempVar; // Important: return the temp
+        return tempVar;
     }
 
     private String printArrayAccess(JmmNode node, StringBuilder code, String method) {
@@ -677,19 +799,35 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                 return table.getReturnType(table.getMethods().get(i));
             }
         }
+        for (int i = 0; i < table.getFields().size(); i++) {
+            if (table.getFields().get(i).getName().equals(var)) {
+                return table.getFields().get(i).getType();
+            }
+        }
         return null;
     }
 
     private String visitClass(JmmNode node, Void unused) {
-
         StringBuilder code = new StringBuilder();
 
         code.append(NL);
         code.append(table.getClassName());
 
+        if (node.hasAttribute("superClass"))
+            code.append(" extends ").append(node.get("superClass")).append(" ");
+
         code.append(L_BRACKET);
         code.append(NL);
         code.append(NL);
+
+        // --- Add this block: process VarDecls ---
+        for (var field : node.getChildren(VAR_DECL)) {
+            String fieldName = field.get("name");
+            String fieldType = ollirTypes.toOllirType(field.getChild(0)); // The type is child 0
+            code.append(".field public ").append(fieldName).append(fieldType).append(";\n");
+        }
+        code.append(NL);
+        // --- End of VarDecls ---
 
         code.append(buildConstructor());
         code.append(NL);
@@ -703,6 +841,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         return code.toString();
     }
+
 
     private String buildConstructor() {
 
