@@ -115,8 +115,8 @@ expr
     | 'new' name=ID LEFT_PARENTHESES RIGHT_PARENTHESES                         #NewObject
     | NOT expr                                                                 #NegationExpr
     | LEFT_PARENTHESES expr RIGHT_PARENTHESES                                  #ParenthesesExpr
-    | TRUE                                                                     #BooleanLiteral
-    | FALSE                                                                    #BooleanLiteral
+    | value=TRUE                                                                     #BooleanLiteral
+    | value=FALSE                                                                    #BooleanLiteral
     | value=INTEGER                                                            #IntegerLiteral
     | name=ID                                                                  #VarRefExpr
     | 'this'                                                                   #ThisExpr

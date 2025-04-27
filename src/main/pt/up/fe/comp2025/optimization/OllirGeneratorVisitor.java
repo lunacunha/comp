@@ -155,51 +155,189 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
         // rest of its children stmts
-        //TODO: E se não forem assignments ou returns ?
-        for (int i = 0; i < node.getNumChildren(); i++){
-            if (node.getChild(i).getKind().equals("AssignStatement")) {
-                code.append(node.getChild(i).get("name") + ollirTypes.toOllirType(node.getChild(i).getChild(0))
-                        + " := " + ollirTypes.toOllirType(node.getChild(i).getChild(0)) + " " +
-                        node.getChild(i).getChild(0).get("value") +
-                        ollirTypes.toOllirType(node.getChild(i).getChild(0)) + ";\n");
-            }
-
-        }
-        getRefType("a",node.get("name"));
+        //TODO: E se não forem assignments ou returns ou if statements ?
+        boolean returnFound = false;
         for (int i = 0; i < node.getNumChildren(); i++){
             if (node.getChild(i).getKind().equals("ReturnStatement")) {
                 //TODO : E se não for AdditionExpr ou VarRef ?
-                if (node.getChild(i).getChild(0).getKind().equals("VarRefExpr")){
-                    code.append("ret");
-                    code.append(printVarRef(node.getChild(i).getChild(0).get("name"),node.get("name")));
-                    code.append(";\n");
-                }
-                else if (node.getChild(i).getChild(0).getKind().equals("AdditionExpr")){
-                    String currentTemp = ollirTypes.nextTemp();
-                    code.append(currentTemp);
-                    code.append(ollirTypes.toOllirType(node.getChild(0)) + " :=");
-                    for (int j = 0;j < node.getChild(i).getChild(0).getChildren().size(); j++) {
-                        JmmNode child = node.getChild(i).getChild(0).getChild(j);
-                        System.out.println(child);
-                        if (child.getKind().equals("VarRefExpr")){
-                            //TODO : E se não for VarRef ?
-                            code.append(printVarRef(child.get("name"),node.get("name")) + " ");
-                        }
-                        if (j == node.getChild(i).getChild(0).getChildren().size() - 1) code.append(";\n");
-                        else code.append("+");
-                    }
-                    //TODO : E se não for só o tipo de return ?
-                    code.append("ret" + ollirTypes.toOllirType(node.getChild(0)) + " " + currentTemp + ollirTypes.toOllirType(node.getChild(0)));
-                    code.append(";\n");
-                }
+                returnFound = true;
+                printReturnStmt(node.getChild(i),code);
             }
-
+            else if (node.getChild(i).getKind().equals("AssignStatement")){
+                printAssignStmt(node.getChild(i),code);
+            }
+            else if (node.getChild(i).getKind().equals("IfStatement")){
+                printIfStmt(node.getChild(i), code);
+            }
+            else {
+                System.out.println(node.getChild(i));
+            }
         }
+        if (!returnFound) code.append("ret.V;\n");
 
         code.append(R_BRACKET);
         code.append(NL);
 
         return code.toString();
+    }
+
+    private void printIfStmt(JmmNode node, StringBuilder code) {
+        String thenLabel = ollirTypes.nextLabel("then");
+        String endifLabel = ollirTypes.nextLabel("endif");
+
+        JmmNode condition = node.getChild(0); // VarRefExpr
+        String condName = condition.get("name");
+
+        code.append("if (").append(condName).append(".bool) goto ").append(thenLabel).append(";\n");
+
+        // ELSE BLOCK
+        JmmNode elseBlock = node.getChild(2); // second block is ELSE
+        for (var stmt : elseBlock.getChildren()) {
+            if (stmt.getKind().equals("ExprStatement")) {
+                printExprStatement(stmt, code);
+            }
+        }
+        code.append("goto ").append(endifLabel).append(";\n");
+
+        // THEN BLOCK
+        code.append(thenLabel).append(":\n");
+        JmmNode thenBlock = node.getChild(1); // first block is THEN
+        for (var stmt : thenBlock.getChildren()) {
+            if (stmt.getKind().equals("ExprStatement")) {
+                printExprStatement(stmt, code);
+            }
+        }
+
+        // ENDIF
+        code.append(endifLabel).append(":\n");
+    }
+
+    private void printExprStatement(JmmNode node, StringBuilder code) {
+        JmmNode expr = node.getChild(0); // MethodCall
+
+        if (expr.getKind().equals("MethodCall")) {
+            String caller = expr.getChild(0).get("name"); // e.g., io
+            String methodName = expr.get("name"); // e.g., print
+
+            JmmNode argNode = expr.getChild(1);
+            String arg;
+            if (argNode.getKind().equals("IntegerLiteral")) {
+                arg = argNode.get("value") + ".i32";
+            } else {
+                // fallback if it's a variable
+                arg = argNode.get("name") + ".i32";
+            }
+
+            code.append("invokestatic(")
+                    .append(caller)
+                    .append(", \"")
+                    .append(methodName)
+                    .append("\", ")
+                    .append(arg)
+                    .append(").V;\n");
+        }
+    }
+
+
+    private void printAssignStmt(JmmNode node, StringBuilder code){
+        switch(node.getChild(0).getKind()){
+            case "IntegerLiteral":
+                code.append(node.get("name") + ollirTypes.toOllirType(node.getChild(0))
+                        + " := " + ollirTypes.toOllirType(node.getChild(0)) + " " +
+                        node.getChild(0).get("value") +
+                        ollirTypes.toOllirType(node.getChild(0)) + ";\n");
+                break;
+            case "AndExpr":
+                printAndExpr(node, code);
+                break;
+            default:
+                System.out.println(node.getChild(0).getKind());
+                break;
+        }
+    }
+
+
+    private String handleAndExpr(JmmNode node, StringBuilder code) {
+        String boolType = ".bool";
+        String andTemp = ollirTypes.nextTemp("andTmp");
+        String thenLabel = ollirTypes.nextLabel("then");
+        String endifLabel = ollirTypes.nextLabel("endif");
+
+        // Evaluate left child
+        String leftValue;
+        JmmNode left = node.getChild(0);
+        if (left.getKind().equals("AndExpr")) {
+            leftValue = handleAndExpr(left, code);
+        } else {
+            // Inline conversion for BooleanLiteral: "true"->"1" else "0"
+            leftValue = left.getKind().equals("BooleanLiteral")
+                    ? (left.get("value").equals("true") ? "1" : "0")
+                    : left.get("name");
+        }
+
+        code.append("if (").append(leftValue).append(boolType).append(") goto ").append(thenLabel).append(";\n");
+
+        code.append(andTemp).append(boolType).append(" :=").append(boolType).append(" 0.bool;\n");
+        code.append("goto ").append(endifLabel).append(";\n");
+
+        code.append(thenLabel).append(":\n");
+
+        // Evaluate right child
+        String rightValue;
+        JmmNode right = node.getChild(1);
+        if (right.getKind().equals("AndExpr")) {
+            rightValue = handleAndExpr(right, code);
+        } else {
+            // Inline conversion for BooleanLiteral: "true"->"1" else "0"
+            rightValue = right.getKind().equals("BooleanLiteral")
+                    ? (right.get("value").equals("true") ? "1" : "0")
+                    : right.get("name");
+        }
+
+        code.append(andTemp).append(boolType).append(" :=").append(boolType).append(" ")
+                .append(rightValue).append(boolType).append(";\n");
+
+        code.append(endifLabel).append(":\n");
+
+        return andTemp;
+    }
+
+
+    private void printAndExpr(JmmNode node, StringBuilder code) {
+        JmmNode exprNode = node.getChild(0); // The actual AndExpr inside the AssignStatement
+        String finalTemp = handleAndExpr(exprNode, code);
+
+        String varName = node.get("name"); // The variable being assigned to
+        code.append(varName).append(".bool :=.bool ").append(finalTemp).append(".bool;\n");
+    }
+
+
+
+    private void printReturnStmt(JmmNode node, StringBuilder code){
+            //TODO : E se não for AdditionExpr ou VarRef ?
+            if (node.getChild(0).getKind().equals("VarRefExpr")){
+                code.append("ret");
+                code.append(printVarRef(node.getChild(0).get("name"),node.getParent().get("name")));
+                code.append(";\n");
+            }
+            else if (node.getChild(0).getKind().equals("AdditionExpr")){
+                String currentTemp = ollirTypes.nextTemp();
+                code.append(currentTemp);
+                code.append(ollirTypes.toOllirType(node.getParent().getChild(0)) + " :=");
+                for (int j = 0;j < node.getChild(0).getChildren().size(); j++) {
+                    JmmNode child = node.getChild(0).getChild(j);
+                    System.out.println(child);
+                    if (child.getKind().equals("VarRefExpr")){
+                        //TODO : E se não for VarRef ?
+                        code.append(printVarRef(child.get("name"),node.getParent().get("name")) + " ");
+                    }
+                    if (j == node.getChild(0).getChildren().size() - 1) code.append(";\n");
+                    else code.append("+");
+                }
+                //TODO : E se não for só o tipo de return ?
+                code.append("ret" + ollirTypes.toOllirType(node.getChild(0)) + " " + currentTemp + ollirTypes.toOllirType(node.getChild(0)));
+                code.append(";\n");
+            }
     }
 
     private String printVarRef(String var, String method) {
@@ -216,7 +354,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         }
         return null;
     }
-
 
     private String visitClass(JmmNode node, Void unused) {
 
