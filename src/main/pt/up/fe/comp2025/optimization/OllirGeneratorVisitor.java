@@ -160,7 +160,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         boolean returnFound = false;
         for (int i = 0; i < node.getNumChildren(); i++){
             if (node.getChild(i).getKind().equals("ReturnStatement")) {
-                //TODO : E se não for AdditionExpr ou VarRef ?
+                //TODO : WE ALREADY SUPPORT MANY AND BUT NOT RECURSIVE ADDITION EXPR
                 returnFound = true;
                 printReturnStmt(node.getChild(i),code);
             }
@@ -172,6 +172,9 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             }
             else if (node.getChild(i).getKind().equals("ArrayAssignStatement")){
                 printArrayAssignStmt(node.getChild(i),code);
+            }
+            else if (node.getChild(i).getKind().equals("ExprStatement")){
+                printExprStatement(node.getChild(i),code);
             }
             else {
                 System.out.println(node.getChild(i));
@@ -220,16 +223,26 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         JmmNode expr = node.getChild(0); // MethodCall
 
         if (expr.getKind().equals("MethodCall")) {
-            String caller = expr.getChild(0).get("name"); // e.g., io
-            String methodName = expr.get("name"); // e.g., print
+            String caller = expr.getChild(0).get("name"); // ioPlus
+            String methodName = expr.get("name"); // printResult
 
             JmmNode argNode = expr.getChild(1);
             String arg;
+
             if (argNode.getKind().equals("IntegerLiteral")) {
                 arg = argNode.get("value") + ".i32";
-            } else {
-                // fallback if it's a variable
+            }
+            else if (argNode.getKind().equals("FieldAccess")) {
+                arg = handleFieldAccess(argNode, code) + ".i32";
+            }
+            else if (argNode.getKind().equals("ArrayAccess")) {
+                arg = handleArrayAccess(argNode, code) + ".i32";
+            }
+            else if (argNode.getKind().equals("VarRefExpr")) {
                 arg = argNode.get("name") + ".i32";
+            }
+            else {
+                arg = handleExpression(argNode, code) + ".i32";
             }
 
             code.append("invokestatic(")
@@ -239,6 +252,133 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                     .append("\", ")
                     .append(arg)
                     .append(").V;\n");
+        }
+    }
+
+    private String handleFieldAccess(JmmNode node, StringBuilder code) {
+        JmmNode arrayNode = node.getChild(0); // VarRefExpr (a)
+        String arrayName = arrayNode.get("name");
+
+        String tmpVar = ollirTypes.nextTemp();
+        code.append(tmpVar + ".i32 :=.i32 arraylength(" + arrayName + ".array.i32).i32;\n");
+
+        return tmpVar + ".i32";
+    }
+
+    private String handleArrayAccess(JmmNode node, StringBuilder code) {
+        JmmNode arrayNode = node.getChild(0); // VarRefExpr (a)
+        JmmNode indexNode = node.getChild(1); // the expression inside []
+
+        String arrayName = arrayNode.get("name");
+        String index;
+
+        if (indexNode.getKind().equals("IntegerLiteral")) {
+            index = indexNode.get("value") + ".i32";
+        }
+        else if (indexNode.getKind().equals("VarRefExpr")) {
+            index = indexNode.get("name") + ".i32";
+        }
+        else if (indexNode.getKind().equals("MethodCall")) {
+            index = handleMethodCall(indexNode, code) + ".i32";
+        }
+        else if (indexNode.getKind().equals("ArrayAccess")) {
+            index = handleArrayAccess(indexNode, code) + ".i32";
+        }
+        else if (indexNode.getKind().equals("FieldAccess")) {
+            index = handleFieldAccess(indexNode, code) + ".i32";
+        }
+        else {
+            index = handleExpression(indexNode, code) + ".i32";
+        }
+
+        String tmpVar = ollirTypes.nextTemp();
+        code.append(tmpVar + ".i32 :=.i32 " + arrayName + ".array.i32[" + index + "].i32;\n");
+
+        return tmpVar;
+    }
+
+    private String handleMethodCall(JmmNode node, StringBuilder code) {
+        String obj = node.getChild(0).get("name"); // d
+        String methodName = node.get("name"); // func
+
+        JmmNode argNode = node.getChild(1);
+        String arg;
+        if (argNode.getKind().equals("IntegerLiteral")) {
+            arg = argNode.get("value") + ".i32";
+        } else if (argNode.getKind().equals("VarRefExpr")) {
+            arg = argNode.get("name") + ".i32";
+        } else {
+            arg = handleExpression(argNode, code) + ".i32";
+        }
+
+        // 🧠 Now find the object's type dynamically
+        String objectType = null;
+        String method = node.getAncestor(METHOD_DECL).get().get("name");
+
+        // First check locals
+        for (var var : table.getLocalVariables(method)) {
+            if (var.getName().equals(obj)) {
+                objectType = ollirTypes.toOllirType(var.getType());
+                break;
+            }
+        }
+
+        // If not found, check parameters
+        if (objectType == null) {
+            for (var param : table.getParameters(method)) {
+                if (param.getName().equals(obj)) {
+                    objectType = ollirTypes.toOllirType(param.getType());
+                    break;
+                }
+            }
+        }
+
+        // Final safety check
+        if (objectType == null) {
+            System.err.println("Could not find type of object: " + obj);
+            objectType = "UNKNOWN"; // So it doesn't crash (optional)
+        }
+
+        String tmpVar = ollirTypes.nextTemp();
+        code.append(tmpVar + ".i32 :=.i32 invokevirtual(" + obj + objectType + ", \"" + methodName + "\", " + arg + ").i32;\n");
+
+        return tmpVar;
+    }
+
+    private String handleExpression(JmmNode node, StringBuilder code) {
+        if (node.getKind().equals("DivisionExpr")) {
+            String left = handleExpression(node.getChild(0), code);
+            String right = handleExpression(node.getChild(1), code);
+            String tmpVar = ollirTypes.nextTemp();
+            code.append(tmpVar + ".i32 :=.i32 " + left + ".i32 /.i32 " + right + ".i32;\n");
+            return tmpVar;
+        }
+        else if (node.getKind().equals("AdditionExpr")) {
+            String left = handleExpression(node.getChild(0), code);
+            String right = handleExpression(node.getChild(1), code);
+            String tmpVar = ollirTypes.nextTemp();
+            code.append(tmpVar + ".i32 :=.i32 " + left + ".i32 +.i32 " + right + ".i32;\n");
+            return tmpVar;
+        }
+        else if (node.getKind().equals("SubtractionExpr")) {
+            String left = handleExpression(node.getChild(0), code);
+            String right = handleExpression(node.getChild(1), code);
+            String tmpVar = ollirTypes.nextTemp();
+            code.append(tmpVar + ".i32 :=.i32 " + left + ".i32 -.i32 " + right + ".i32;\n");
+            return tmpVar;
+        }
+        else if (node.getKind().equals("IntegerLiteral")) {
+            return node.get("value");
+        }
+        else if (node.getKind().equals("VarRefExpr")) {
+            return node.get("name");
+        }
+        else if (node.getKind().equals("FieldAccess")) {
+            return handleFieldAccess(node, code).replace(".i32", "");
+        }
+        else {
+            System.out.println("Unknown expression kind: " + node.getKind());
+            return "UNKNOWN";
         }
     }
 
@@ -299,10 +439,43 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                 String accessResult = printArrayAccess(node.getChild(0), code, node.getAncestor(METHOD_DECL).get().get("name"));
                 code.append(lhsVar + ".i32 :=.i32 " + accessResult + ".i32;\n");
                 break;
+            case "NewArray":
+                String type = ollirTypes.toOllirType(node.getChild(0).getChild(0));
+                String tmpArrayVar = printNewArray(node.getChild(0), code, type);
+                code.append(lhsVar + ".array" + type + " :=.array" + type + " " + tmpArrayVar + ".array" + type + ";\n");
+                break;
+            case "NewObject":
+                String tmpObjectVar = printNewObject(node.getChild(0), code);
+                String className = node.getChild(0).get("name");
+                code.append(lhsVar + "." + className + " :=." + className + " " + tmpObjectVar + "." + className + ";\n");
+                break;
+
             default:
                 System.out.println("Unhandled assignment for: " + node.getChild(0).getKind());
                 break;
         }
+    }
+    private String printNewObject(JmmNode node, StringBuilder code) {
+        String className = node.get("name"); // ComplexArrayAccess
+        String tmpVar = ollirTypes.nextTemp(); // generate a fresh temporary variable name
+
+        // Create the new object
+        code.append(tmpVar + "." + className + " :=." + className + " new(" + className + ")." + className + ";\n");
+
+        // Call the constructor
+        code.append("invokespecial(" + tmpVar + "." + className + ", \"<init>\").V;\n");
+
+        return tmpVar;
+    }
+
+
+    private String printNewArray(JmmNode node, StringBuilder code, String type) {
+        String tmpVar = ollirTypes.nextTemp();
+        String sizeValue = node.getChild(0).get("value"); // the integer inside new array (e.g., 5)
+
+        code.append(tmpVar + ".array" + type + " :=.array" + type + " new(array, " + sizeValue +".i32).array"+type+";\n");
+
+        return tmpVar; // return the temp variable holding the new array
     }
 
     private void printArrayAssignStmt(JmmNode node, StringBuilder code){
@@ -325,7 +498,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                 .append(value)
                 .append(";\n");
     }
-
 
     private String handleAndExpr(JmmNode node, StringBuilder code) {
         String boolType = ".bool";
@@ -407,7 +579,10 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private String printVarRef(String var, String method) {
+        System.out.println(table);
+        System.out.println(method);
         Type type = getRefType(var, method);
+        System.out.println(type);
         String str = ollirTypes.toOllirType(type) + " " + var + ollirTypes.toOllirType(type);
         return str;
     }
@@ -445,7 +620,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return tempVar; // Important: return the temp
     }
 
-
     private String printArrayAccess(JmmNode node, StringBuilder code, String method) {
         JmmNode arrayVar = node.getChild(0); // VarRefExpr
         JmmNode indexExpr = node.getChild(1); // IntegerLiteral or VarRefExpr
@@ -454,21 +628,21 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         // Find the type of the array
         Type arrayType = null;
-        for (int i = 0; i < table.getLocalVariables(method).size() + table.getParameters(method).size(); i++) {
+        for (int i = 0; i < table.getLocalVariables(method).size(); i++) {
             if (table.getLocalVariables(method).get(i).getName().equals(arrayName)) {
                 arrayType = table.getLocalVariables(method).get(i).getType();
-                break;
             }
-            else if (table.getParameters(method).get(i).getName().equals(arrayName)){
+        }
+        for (int i = 0; i < table.getParameters(method).size(); i++) {
+            if (table.getParameters(method).get(i).getName().equals(arrayName)) {
                 arrayType = table.getParameters(method).get(i).getType();
-                break;
             }
         }
         if (arrayType == null) {
             return null;
         }
 
-        String elementTypeOllir = ".i32"; // Assuming arrays of i32 elements
+        String elementTypeOllir = ".i32";
 
         String indexValue;
         if (indexExpr.getKind().equals("IntegerLiteral")) {
@@ -491,6 +665,16 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         for (int i = 0; i < table.getLocalVariables(method).size(); i++) {
             if (table.getLocalVariables(method).get(i).getName().equals(var)) {
                 return table.getLocalVariables(method).get(i).getType();
+            }
+        }
+        for (int i = 0; i < table.getParameters(method).size(); i++) {
+            if (table.getParameters(method).get(i).getName().equals(var)) {
+                return table.getParameters(method).get(i).getType();
+            }
+        }
+        for (int i = 0; i < table.getMethods().size(); i++) {
+            if (table.getMethods().get(i).equals(var)) {
+                return table.getReturnType(table.getMethods().get(i));
             }
         }
         return null;
