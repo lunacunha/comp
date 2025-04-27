@@ -51,6 +51,9 @@ public class OptUtils {
             case "ClassArrayType":
                 ret += ".array." + typeNode.get("name");
                 break;
+            case "IntArrayType":
+                ret += ".array.i32";
+                break;
             case "BooleanLiteral":
                 ret += ".bool";
                 break;
@@ -66,7 +69,7 @@ public class OptUtils {
             return ".array." + switch (type.getName()) {
                 case "int" -> "i32";
                 case "boolean" -> "bool";
-                default -> throw new NotImplementedException("Unsupported array type: " + type.getName());
+                default -> type.getName();
             };
         }
 

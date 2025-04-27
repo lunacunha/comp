@@ -124,7 +124,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return code;
     }
 */
-    //TODO: Não é para por tudo no visitMethodDecl ?
+    //TODO: Não é para visitar tudo no visitMethodDecl ?
     private String visitMethodDecl(JmmNode node, Void unused) {
         StringBuilder code = new StringBuilder(".method ");
         boolean isPublic = node.hasAttribute("pub") && node.get("pub").equals("public");
@@ -157,7 +157,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
         // rest of its children stmts
-        //TODO: E se não forem assignments ou returns ou if statements ?
         boolean returnFound = false;
         for (int i = 0; i < node.getNumChildren(); i++){
             if (node.getChild(i).getKind().equals("ReturnStatement")) {
@@ -170,6 +169,9 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             }
             else if (node.getChild(i).getKind().equals("IfStatement")){
                 printIfStmt(node.getChild(i), code);
+            }
+            else if (node.getChild(i).getKind().equals("ArrayAssignStatement")){
+                printArrayAssignStmt(node.getChild(i),code);
             }
             else {
                 System.out.println(node.getChild(i));
@@ -241,7 +243,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private void printLessExpr(JmmNode node, StringBuilder code) {
-        JmmNode exprNode = node.getChild(0); // The actual LessThanExpr inside the AssignStatement
+        JmmNode exprNode = node.getChild(0);
 
         String boolType = ".bool";
         String intType = ".i32";
@@ -274,12 +276,14 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     }
 
     private void printAssignStmt(JmmNode node, StringBuilder code){
+        String lhsVar = node.get("name"); // The variable being assigned to
+
         switch(node.getChild(0).getKind()){
             case "IntegerLiteral":
-                code.append(node.get("name") + ollirTypes.toOllirType(node.getChild(0))
-                        + " := " + ollirTypes.toOllirType(node.getChild(0)) + " " +
-                        node.getChild(0).get("value") +
-                        ollirTypes.toOllirType(node.getChild(0)) + ";\n");
+                code.append(lhsVar + ".i32 :=.i32 " + node.getChild(0).get("value") + ".i32;\n");
+                break;
+            case "VarRefExpr":
+                code.append(lhsVar + ".i32 :=.i32 " + node.getChild(0).get("name") + ".i32;\n");
                 break;
             case "AndExpr":
                 printAndExpr(node, code);
@@ -287,11 +291,41 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             case "LessThanExpr":
                 printLessExpr(node,code);
                 break;
+            case "AdditionExpr":
+                String sumResult = printAdditionExpr(node.getChild(0), code);
+                code.append(lhsVar + ".i32 :=.i32 " + sumResult + ".i32;\n");
+                break;
+            case "ArrayAccess":
+                String accessResult = printArrayAccess(node.getChild(0), code, node.getAncestor(METHOD_DECL).get().get("name"));
+                code.append(lhsVar + ".i32 :=.i32 " + accessResult + ".i32;\n");
+                break;
             default:
-                System.out.println(node.getChild(0).getKind());
+                System.out.println("Unhandled assignment for: " + node.getChild(0).getKind());
                 break;
         }
     }
+
+    private void printArrayAssignStmt(JmmNode node, StringBuilder code){
+        String arrayName = node.get("name");
+
+        JmmNode indexNode = node.getChild(0);
+        JmmNode valueNode = node.getChild(1);
+
+        String index = indexNode.getKind().equals("IntegerLiteral")
+                ? indexNode.get("value") + ".i32"
+                : indexNode.get("name") + ".i32";
+
+        String value = valueNode.getKind().equals("IntegerLiteral")
+                ? valueNode.get("value") + ".i32"
+                : valueNode.get("name") + ".i32";
+
+        code.append(arrayName).append("[")
+                .append(index)
+                .append("].i32 :=.i32 ")
+                .append(value)
+                .append(";\n");
+    }
+
 
     private String handleAndExpr(JmmNode node, StringBuilder code) {
         String boolType = ".bool";
@@ -359,7 +393,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                 code.append(ollirTypes.toOllirType(node.getParent().getChild(0)) + " :=");
                 for (int j = 0;j < node.getChild(0).getChildren().size(); j++) {
                     JmmNode child = node.getChild(0).getChild(j);
-                    System.out.println(child);
                     if (child.getKind().equals("VarRefExpr")){
                         //TODO : E se não for VarRef ?
                         code.append(printVarRef(child.get("name"),node.getParent().get("name")) + " ");
@@ -377,6 +410,81 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         Type type = getRefType(var, method);
         String str = ollirTypes.toOllirType(type) + " " + var + ollirTypes.toOllirType(type);
         return str;
+    }
+
+    private String printAdditionExpr(JmmNode node, StringBuilder code) {
+        String intType = ".i32";
+        String tempVar = ollirTypes.nextTemp(); // For the final sum
+
+        StringBuilder expr = new StringBuilder();
+
+        for (int i = 0; i < node.getChildren().size(); i++) {
+            JmmNode child = node.getChild(i);
+
+            if (child.getKind().equals("VarRefExpr")) {
+                expr.append(child.get("name")).append(intType);
+            }
+            else if (child.getKind().equals("IntegerLiteral")) {
+                expr.append(child.get("value")).append(intType);
+            }
+            else if (child.getKind().equals("ArrayAccess")) {
+                String tmp = printArrayAccess(child, code, node.getAncestor(METHOD_DECL).get().get("name"));
+                expr.append(tmp).append(intType); // use the tmp returned
+            }
+            else {
+                System.out.println("Warning: Unhandled kind inside AdditionExpr: " + child.getKind());
+            }
+
+            if (i != node.getChildren().size() - 1) {
+                expr.append(" +.i32 ");
+            }
+        }
+
+        code.append(tempVar).append(intType).append(" :=").append(intType).append(" ").append(expr.toString()).append(";\n");
+
+        return tempVar; // Important: return the temp
+    }
+
+
+    private String printArrayAccess(JmmNode node, StringBuilder code, String method) {
+        JmmNode arrayVar = node.getChild(0); // VarRefExpr
+        JmmNode indexExpr = node.getChild(1); // IntegerLiteral or VarRefExpr
+
+        String arrayName = arrayVar.get("name");
+
+        // Find the type of the array
+        Type arrayType = null;
+        for (int i = 0; i < table.getLocalVariables(method).size() + table.getParameters(method).size(); i++) {
+            if (table.getLocalVariables(method).get(i).getName().equals(arrayName)) {
+                arrayType = table.getLocalVariables(method).get(i).getType();
+                break;
+            }
+            else if (table.getParameters(method).get(i).getName().equals(arrayName)){
+                arrayType = table.getParameters(method).get(i).getType();
+                break;
+            }
+        }
+        if (arrayType == null) {
+            return null;
+        }
+
+        String elementTypeOllir = ".i32"; // Assuming arrays of i32 elements
+
+        String indexValue;
+        if (indexExpr.getKind().equals("IntegerLiteral")) {
+            indexValue = indexExpr.get("value") + ".i32";
+        } else {
+            indexValue = indexExpr.get("name") + ".i32";
+        }
+
+        // Create a temp
+        String tempVar = ollirTypes.nextTemp("tmp");
+
+        // Generate the assignment
+        code.append(tempVar).append(".i32 :=.i32 ")
+                .append(arrayName).append(".array.i32[").append(indexValue).append("].i32;\n");
+
+        return tempVar; // Return the temporary variable name so it can be used
     }
 
     private Type getRefType(String var, String method) {
@@ -421,9 +529,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                 """.formatted(table.getClassName());
     }
 
-
     private String visitProgram(JmmNode node, Void unused) {
-        System.out.println(node.getChildren(IMPORT_DECL));
         StringBuilder code = new StringBuilder();
         for (JmmNode child : node.getChildren(IMPORT_DECL)) {
             code.append("import " + child.getChild(0).get("ID") + ";\n");

@@ -49,7 +49,7 @@ public class TypeUtils {
             case "VoidType":
                 return new Type("void", false);
             default:
-                return new Type("unknown", false);
+                return new Type(typeNode.get("name"), false);
         }
     }
 
