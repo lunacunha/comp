@@ -47,14 +47,17 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(PROGRAM, this::visitProgram);
         addVisit(CLASS_DECL, this::visitClass);
         addVisit(METHOD_DECL, this::visitMethodDecl);
+        /*
         addVisit(NORMAL_PARAM, this::visitParam);
         addVisit(RETURN_STMT, this::visitReturn);
         addVisit(ASSIGN_STMT, this::visitAssignStmt);
+        */
+
 
         setDefaultVisit(this::defaultVisit);
     }
 
-
+/*
     private String visitAssignStmt(JmmNode node, Void unused) {
 
         var rhs = exprVisitor.visit(node.getChild(1));
@@ -120,10 +123,9 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         return code;
     }
-
+*/
     //TODO: Não é para por tudo no visitMethodDecl ?
     private String visitMethodDecl(JmmNode node, Void unused) {
-
         StringBuilder code = new StringBuilder(".method ");
         boolean isPublic = node.hasAttribute("pub") && node.get("pub").equals("public");
         boolean isStatic = node.hasAttribute("stat") && node.get("stat").equals("static");
@@ -141,7 +143,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         // params
         List<String> paramsList = new ArrayList<>();
-        for (int i = 1; i < node.getNumChildren(); i++) {
+        for (int i = 0; i < node.getNumChildren(); i++) {
             if (node.getChild(i).getKind().equals("NormalParam")) {
                 paramsList.add(node.getChild(i).get("name") + ollirTypes.toOllirType(node.getChild(i).getChild(0)));
             }
@@ -238,6 +240,38 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         }
     }
 
+    private void printLessExpr(JmmNode node, StringBuilder code) {
+        JmmNode exprNode = node.getChild(0); // The actual LessThanExpr inside the AssignStatement
+
+        String boolType = ".bool";
+        String intType = ".i32";
+        String tmpVar = ollirTypes.nextTemp("tmp"); // generate a new temp
+
+        JmmNode left = exprNode.getChild(0);
+        JmmNode right = exprNode.getChild(1);
+
+        String leftValue;
+        if (left.getKind().equals("IntegerLiteral")) {
+            leftValue = left.get("value");
+        } else {
+            leftValue = left.get("name");
+        }
+
+        String rightValue;
+        if (right.getKind().equals("IntegerLiteral")) {
+            rightValue = right.get("value");
+        } else {
+            rightValue = right.get("name");
+        }
+
+        code.append(tmpVar).append(boolType).append(" :=").append(boolType).append(" ")
+                .append(leftValue).append(intType).append(" <.bool ")
+                .append(rightValue).append(intType).append(";\n");
+
+        String varName = node.get("name");
+        code.append(varName).append(boolType).append(" :=").append(boolType).append(" ")
+                .append(tmpVar).append(boolType).append(";\n");
+    }
 
     private void printAssignStmt(JmmNode node, StringBuilder code){
         switch(node.getChild(0).getKind()){
@@ -250,12 +284,14 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             case "AndExpr":
                 printAndExpr(node, code);
                 break;
+            case "LessThanExpr":
+                printLessExpr(node,code);
+                break;
             default:
                 System.out.println(node.getChild(0).getKind());
                 break;
         }
     }
-
 
     private String handleAndExpr(JmmNode node, StringBuilder code) {
         String boolType = ".bool";
@@ -302,7 +338,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return andTemp;
     }
 
-
     private void printAndExpr(JmmNode node, StringBuilder code) {
         JmmNode exprNode = node.getChild(0); // The actual AndExpr inside the AssignStatement
         String finalTemp = handleAndExpr(exprNode, code);
@@ -310,8 +345,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         String varName = node.get("name"); // The variable being assigned to
         code.append(varName).append(".bool :=.bool ").append(finalTemp).append(".bool;\n");
     }
-
-
 
     private void printReturnStmt(JmmNode node, StringBuilder code){
             //TODO : E se não for AdditionExpr ou VarRef ?
@@ -390,9 +423,11 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
     private String visitProgram(JmmNode node, Void unused) {
-
+        System.out.println(node.getChildren(IMPORT_DECL));
         StringBuilder code = new StringBuilder();
-
+        for (JmmNode child : node.getChildren(IMPORT_DECL)) {
+            code.append("import " + child.getChild(0).get("ID") + ";\n");
+        }
         node.getChildren().stream()
                 .map(this::visit)
                 .forEach(code::append);
