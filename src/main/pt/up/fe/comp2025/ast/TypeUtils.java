@@ -4,6 +4,8 @@ import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
+import pt.up.fe.comp.jmm.report.Report;
+import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2025.symboltable.JmmSymbolTable;
 
 import java.util.Optional;
@@ -118,30 +120,82 @@ public class TypeUtils {
     }
 
     public Type getExprType(JmmNode node) {
-        return switch (node.getKind()) {
-            case "FieldAccess", "IntegerLiteral" -> newIntType();
-            case "BooleanLiteral" -> newBooleanType();
-            case "VarRefExpr" -> getVarType(node.get("name"), "main"); // ou passa o método atual
-            case "ThisExpr" -> new Type(table.getClassName(), false);
-            case "NewArrayExpr", "ArrayInit", "ArrayLiteralExpr" -> newIntArrayType();
-            case "ArrayAccessExpr" -> newIntType(); // assume int[] para já
-            case "NewClassExpr" -> new Type(node.get("className"), false);
+
+        Type ret =  switch (node.getKind()) {
+            case "IntegerLiteral" -> {
+                yield TypeUtils.newIntType();
+            }
+            case "FieldAccess" -> {
+                String fieldName = node.get("name");
+
+                if (fieldName.equals("length")) {
+                    JmmNode target = node.getChild(0);
+                    Type targetType = getExprType(target);
+
+                    // Verifica se estamos a aceder ao length de um array
+                    if (targetType.isArray()) {
+                        yield new Type("int", false); // `.length` retorna sempre int
+                    } else {
+                        yield new Type("unknown", false);
+                    }
+                } else {
+                    yield new Type("unknown", false); // you can later add support for object fields
+                }
+            }
+            case "BooleanLiteral" -> TypeUtils.newBooleanType();
+            case "VarRefExpr" -> {
+                String varName = node.get("name");
+
+                if (table.getMethods().contains(varName)) {
+                    yield new Type("unknown", false); // ignora
+                }
+                if (varName.equals("true") || varName.equals("false")) {
+                    yield TypeUtils.newBooleanType();
+                }
+                try {
+                    yield getVarType(varName, node.getAncestor("MethodDecl").get().get("name"));
+                } catch (RuntimeException e) {
+                    yield new Type("unknown", false);
+                }
+            }
+            case "ThisExpr" -> {
+                if ("main".equals(node.getAncestor("MethodDecl").get().get("name"))) {
+                    yield new Type("unknown", false);
+                }
+                else yield new Type(table.getClassName(), false);
+            }
+            case "NewArray" -> TypeUtils.newIntArrayType();
+            case "NewObject" -> {
+                if (node.get("name").startsWith("VarArgs")) yield new Type("int...", true);
+                else yield new Type(node.get("name"), false);
+            }
+            case "ArrayAccess" -> {
+                Type arr = getExprType(node.getChild(0));
+                if (arr.getName().equals("int...")) yield new Type("int",false);
+                else yield arr.isArray() ? new Type(arr.getName(), false) : new Type("unknown", false);
+            }
             case "BinaryExpr" -> {
                 String op = node.get("op");
-                yield (op.equals("&&") || op.equals("<") || op.equals("=="))
-                        ? newBooleanType()
-                        : newIntType();
+                yield (op.equals("&&") || op.equals("<") || op.equals("==")) ?
+                        TypeUtils.newBooleanType() : TypeUtils.newIntType();
             }
-            case "AdditionExpr", "SubtractionExpr", "MultiplicationExpr", "DivisionExpr" -> newIntType();
-            case "AndExpr", "LessExpr", "EqualsExpr" -> newBooleanType();
+
+            case "ArrayInit" -> {
+                Type elemType = getExprType(node.getChild(0));
+                if (node.getChildren().isEmpty()) yield TypeUtils.newIntArrayType();
+                else yield new Type(elemType.getName(), true);
+            }
+            case "VarArgs", "VarArg", "VarArgInt","VarArgsTest" -> new Type("int...", true);
+            case "VarArgBool" -> new Type("boolean", true);
+            case "NegationExpr" -> TypeUtils.newBooleanType();
             case "MethodCall", "LocalMethodCall" -> {
                 String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
                 if (!table.getMethods().contains(method)) yield new Type("unknown", false);
-                yield table.getReturnType(method);
+                else yield table.getReturnType(method);
             }
-            case "ClassType", "IntType", "BooleanType", "IntArrayType", "BooleanArrayType", "VarArgInt", "VarargParam" ->
-                    convertType(node);
+
             default -> new Type("unknown", false);
         };
+        return ret;
     }
 }

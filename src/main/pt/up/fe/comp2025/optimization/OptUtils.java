@@ -6,7 +6,6 @@ import pt.up.fe.comp2025.ast.TypeUtils;
 import pt.up.fe.specs.util.collections.AccumulatorMap;
 import pt.up.fe.specs.util.exceptions.NotImplementedException;
 
-import static pt.up.fe.comp2025.ast.Kind.TYPE;
 
 /**
  * Utility methods related to the optimization middle-end.
@@ -14,13 +13,11 @@ import static pt.up.fe.comp2025.ast.Kind.TYPE;
 public class OptUtils {
 
     private final AccumulatorMap<String> temporaries;
-    private final AccumulatorMap<String> labels;
     private final TypeUtils types;
 
     public OptUtils(TypeUtils types) {
         this.types = types;
         this.temporaries = new AccumulatorMap<>();
-        this.labels = new AccumulatorMap<>();
     }
 
     public String nextTemp() {
@@ -30,15 +27,6 @@ public class OptUtils {
     public String nextTemp(String prefix) {
         var nextTempNum = temporaries.add(prefix) - 1;
         return prefix + nextTempNum;
-    }
-
-    public String nextLabel() {
-        return nextLabel("lbl");
-    }
-
-    public String nextLabel(String prefix) {
-        var nextLabelNum = labels.add(prefix) - 1;
-        return prefix + nextLabelNum;
     }
 
     public String toOllirType(JmmNode typeNode) {

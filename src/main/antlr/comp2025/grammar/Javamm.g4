@@ -104,12 +104,10 @@ expr
     : expr '.' name=ID LEFT_PARENTHESES (expr (',' expr)*)? RIGHT_PARENTHESES  #MethodCall
     | expr '.' name=ID                                                         #FieldAccess
     | expr LEFT_BRACKET expr RIGHT_BRACKET                                     #ArrayAccess
-    | expr MULT expr                                                           #MultiplicationExpr
-    | expr PLUS expr                                                           #AdditionExpr
-    | expr SUB expr                                                            #SubtractionExpr
-    | expr DIV expr                                                            #DivisionExpr
-    | expr AND expr                                                            #AndExpr
-    | expr LESS_THAN expr                                                      #LessThanExpr
+    | left=expr op=(MULT | DIV) right=expr                                     #BinaryExpr
+    | left=expr op=(PLUS | SUB) right=expr                                     #BinaryExpr
+    | left=expr op=LESS_THAN right=expr                                        #BinaryExpr
+    | left=expr op=AND right=expr                                              #BinaryExpr
     | LEFT_BRACKET (expr (',' expr)*)? RIGHT_BRACKET                           #ArrayInit
     | 'new' INT LEFT_BRACKET expr RIGHT_BRACKET                                #NewArray
     | 'new' name=ID LEFT_PARENTHESES RIGHT_PARENTHESES                         #NewObject

@@ -32,48 +32,80 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
 
     @Override
     protected void buildVisitor() {
+        addVisit(METHOD_CALL, this::visitMethodCall);
+        addVisit(FIELD_ACCESS, this::visitFieldAccess);
+        addVisit(ARRAY_ACCESS, this::visitArrayAccess);
+        addVisit(BINARY_EXPR, this::visitBinaryExpr);
+        addVisit(ARRAY_INIT, this::visitArrayInit);
+        addVisit(NEW_ARRAY, this::visitNewArray);
+        addVisit(NEW_OBJECT, this::visitNewObject);
+        addVisit(NEGATION_EXPR, this::visitNegationExpr);
+        addVisit(PARENTHESES_EXPR, this::visitParenthesesExpr);
+        addVisit(BOOLEAN_LITERAL, this::visitBooleanLiteral);
+        addVisit(INTEGER_LITERAL, this::visitIntegerLiteral);
         addVisit(VAR_REF_EXPR, this::visitVarRef);
-        addVisit(BINARY_EXPR, this::visitBinExpr);
-        addVisit(INTEGER_LITERAL, this::visitInteger);
+        addVisit(THIS_EXPR, this::visitThisExpr);
+
+
 
 //        setDefaultVisit(this::defaultVisit);
     }
 
+    private OllirExprResult visitThisExpr(JmmNode node, Void unused) {
+        return new OllirExprResult("this");
+    }
 
-    private OllirExprResult visitInteger(JmmNode node, Void unused) {
+    private OllirExprResult visitIntegerLiteral(JmmNode node, Void unused) {
         var intType = TypeUtils.newIntType();
         String ollirIntType = ollirTypes.toOllirType(intType);
         String code = node.get("value") + ollirIntType;
         return new OllirExprResult(code);
     }
 
-
-    private OllirExprResult visitBinExpr(JmmNode node, Void unused) {
-
-        var lhs = visit(node.getChild(0));
-        var rhs = visit(node.getChild(1));
-
-        StringBuilder computation = new StringBuilder();
-
-        // code to compute the children
-        computation.append(lhs.getComputation());
-        computation.append(rhs.getComputation());
-
-        // code to compute self
-        Type resType = types.getExprType(node);
-        String resOllirType = ollirTypes.toOllirType(resType);
-        String code = ollirTypes.nextTemp() + resOllirType;
-
-        computation.append(code).append(SPACE)
-                .append(ASSIGN).append(resOllirType).append(SPACE)
-                .append(lhs.getCode()).append(SPACE);
-
-        Type type = types.getExprType(node);
-        computation.append(node.get("op")).append(ollirTypes.toOllirType(type)).append(SPACE)
-                .append(rhs.getCode()).append(END_STMT);
-
-        return new OllirExprResult(code, computation);
+    private OllirExprResult visitBooleanLiteral(JmmNode node, Void unused) {
+        var boolType = TypeUtils.newBooleanType();
+        String ollirIntType = ollirTypes.toOllirType(boolType);
+        String code = node.get("value") + ollirIntType;
+        return new OllirExprResult(code);
     }
+
+    private OllirExprResult visitParenthesesExpr(JmmNode node, Void unused) {
+        return null;
+    }
+
+    private OllirExprResult visitNegationExpr(JmmNode node, Void unused) {
+        return null;
+    }
+
+    private OllirExprResult visitNewObject(JmmNode node, Void unused) {
+        return null;
+    }
+
+    private OllirExprResult visitNewArray(JmmNode node, Void unused) {
+        return null;
+    }
+
+    private OllirExprResult visitArrayInit(JmmNode node, Void unused) {
+        return null;
+    }
+
+    private OllirExprResult visitBinaryExpr(JmmNode node, Void unused) {
+        return null;
+    }
+
+
+    private OllirExprResult visitArrayAccess(JmmNode node, Void unused) {
+        return null;
+    }
+
+    private OllirExprResult visitFieldAccess(JmmNode node, Void unused) {
+        return null;
+    }
+
+    private OllirExprResult visitMethodCall(JmmNode node, Void unused) {
+        return null;
+    }
+
 
 
     private OllirExprResult visitVarRef(JmmNode node, Void unused) {
@@ -85,6 +117,30 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
         String code = id + ollirType;
 
         return new OllirExprResult(code);
+    }
+
+    public boolean isField(JmmNode node) {
+        String varName = node.get("name");
+        String method = node.getAncestor(METHOD_DECL).get().get("name");
+        boolean isField = false;
+        for (int i = 0; i < table.getFields().size(); i++) {
+            if (table.getFields().get(i).getName().equals(varName)) {
+                isField = true;
+                break;
+            }
+        }
+        if (!isField) return false;
+        for (var local : table.getLocalVariables(method)) {
+            if (local.getName().equals(varName)) {
+                return false;
+            }
+        }
+        for (var param : table.getParameters(method)) {
+            if (param.getName().equals(varName)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

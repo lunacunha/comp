@@ -4,6 +4,7 @@ import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.AJmmVisitor;
 import pt.up.fe.comp.jmm.ast.JmmNode;
+import pt.up.fe.comp2025.ast.Kind;
 import pt.up.fe.comp2025.ast.TypeUtils;
 
 import java.util.ArrayList;
@@ -176,9 +177,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             else if (node.getChild(i).getKind().equals("ExprStatement")){
                 printExprStatement(node.getChild(i),code);
             }
-            else {
-                System.out.println(node.getChild(i));
-            }
         }
         if (!returnFound) code.append("ret.V;\n");
 
@@ -190,8 +188,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private void printIfStmt(JmmNode node, StringBuilder code) {
         // Generate labels for the "then" and "endif" blocks
-        String thenLabel = ollirTypes.nextLabel("then");
-        String endifLabel = ollirTypes.nextLabel("endif");
+        String thenLabel = ollirTypes.nextTemp("then");
+        String endifLabel = ollirTypes.nextTemp("endif");
 
         // Get the condition of the if statement
         JmmNode condition = node.getChild(0); // LessThanExpr or other conditions
@@ -351,7 +349,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         // Final safety check
         if (objectType == null) {
-            System.err.println("Could not find type of object: " + obj);
             objectType = "UNKNOWN"; // So it doesn't crash (optional)
         }
 
@@ -392,10 +389,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         else if (node.getKind().equals("FieldAccess")) {
             return handleFieldAccess(node, code).replace(".i32", "");
         }
-        else {
-            System.out.println("Unknown expression kind: " + node.getKind());
-            return "UNKNOWN";
-        }
+        return "UNKNOWN";
     }
 
     private String printLessExpr(JmmNode node, StringBuilder code) {
@@ -424,28 +418,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         String lhsVar = node.get("name"); // The variable being assigned to
         String rhsVar = node.getChild(0).getKind().equals("VarRefExpr") ? node.getChild(0).get("name") : null;
 
-        boolean isField = false;
-        // Check if lhsVar is a field
-        for (int i = 0; i < table.getFields().size(); i++) {
-            if (table.getFields().get(i).getName().equals(lhsVar)) {
-                isField = true;
-                break;
-            }
-        }
-        for (var local : table.getLocalVariables(node.getAncestor(METHOD_DECL).get().get("name"))) {
-            if (local.getName().equals(lhsVar)) {
-                isField = false;
-                break;
-            }
-        }
-        for (var param : table.getParameters(node.getAncestor(METHOD_DECL).get().get("name"))) {
-            if (param.getName().equals(lhsVar)) {
-                isField = false;
-                break;
-            }
-        }
+        boolean isField = exprVisitor.isField(node);
 
-        // Handle field assignment (putfield)
         if (isField) {
             if (rhsVar != null) {
                 code.append("putfield(this, ").append(lhsVar).append(".i32, ").append(rhsVar).append(".i32).V;\n");
@@ -489,7 +463,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                     code.append(lhsVar + "." + className + " :=." + className + " " + tmpObjectVar + "." + className + ";\n");
                     break;
                 default:
-                    System.out.println("Unhandled assignment for: " + node.getChild(0).getKind());
                     break;
             }
         }
@@ -532,7 +505,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                 code.append(tmpVar + "." + className + " :=." + className + " " + tmpObjectVar + "." + className + ";\n");
                 break;
             default:
-                System.out.println("Unhandled expression for: " + exprNode.getKind());
                 break;
         }
         return tmpVar;
@@ -586,8 +558,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private String handleAndExpr(JmmNode node, StringBuilder code) {
         String boolType = ".bool";
         String andTemp = ollirTypes.nextTemp("andTmp");
-        String thenLabel = ollirTypes.nextLabel("then");
-        String endifLabel = ollirTypes.nextLabel("endif");
+        String thenLabel = ollirTypes.nextTemp("then");
+        String endifLabel = ollirTypes.nextTemp("endif");
 
         // Evaluate left child
         String leftValue;
@@ -683,12 +655,12 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         else if (node.getChild(0).getKind().equals("AdditionExpr")){
                 String currentTemp = ollirTypes.nextTemp();
                 code.append(currentTemp);
-                code.append(ollirTypes.toOllirType(node.getParent().getChild(0)) + " :=");
+                code.append(ollirTypes.toOllirType(node.getParent().getChild(0)) + " :=").append(ollirTypes.toOllirType(node.getParent().getChild(0))).append(SPACE);
                 for (int j = 0;j < node.getChild(0).getChildren().size(); j++) {
                     JmmNode child = node.getChild(0).getChild(j);
                     if (child.getKind().equals("VarRefExpr")){
                         //TODO : E se não for VarRef ?
-                        code.append(printVarRef(child.get("name"),node.getParent().get("name")) + " ");
+                        code.append(exprVisitor.visit(child).getCode()).append(SPACE);
                     }
                     if (j == node.getChild(0).getChildren().size() - 1) code.append(";\n");
                     else code.append("+");
@@ -701,13 +673,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             }
     }
 
-    private String printVarRef(String var, String method) {
-        System.out.println(table);
-        System.out.println(method);
-        Type type = getRefType(var, method);
-        String str = ollirTypes.toOllirType(type) + " " + var + ollirTypes.toOllirType(type);
-        return str;
-    }
+
 
     private String printAdditionExpr(JmmNode node, StringBuilder code) {
         String intType = ".i32";
@@ -727,9 +693,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             else if (child.getKind().equals("ArrayAccess")) {
                 String tmp = printArrayAccess(child, code, node.getAncestor(METHOD_DECL).get().get("name"));
                 expr.append(tmp).append(intType); // use the tmp returned
-            }
-            else {
-                System.out.println("Warning: Unhandled kind inside AdditionExpr: " + child.getKind());
             }
 
             if (i != node.getChildren().size() - 1) {
@@ -768,7 +731,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         String indexValue;
         if (indexExpr.getKind().equals("IntegerLiteral")) {
-            indexValue = indexExpr.get("value") + ".i32";
+            indexValue = exprVisitor.visit(indexExpr).getCode();
         } else {
             indexValue = indexExpr.get("name") + ".i32";
         }
@@ -781,30 +744,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                 .append(arrayName).append(".array.i32[").append(indexValue).append("].i32;\n");
 
         return tempVar; // Return the temporary variable name so it can be used
-    }
-
-    private Type getRefType(String var, String method) {
-        for (int i = 0; i < table.getLocalVariables(method).size(); i++) {
-            if (table.getLocalVariables(method).get(i).getName().equals(var)) {
-                return table.getLocalVariables(method).get(i).getType();
-            }
-        }
-        for (int i = 0; i < table.getParameters(method).size(); i++) {
-            if (table.getParameters(method).get(i).getName().equals(var)) {
-                return table.getParameters(method).get(i).getType();
-            }
-        }
-        for (int i = 0; i < table.getMethods().size(); i++) {
-            if (table.getMethods().get(i).equals(var)) {
-                return table.getReturnType(table.getMethods().get(i));
-            }
-        }
-        for (int i = 0; i < table.getFields().size(); i++) {
-            if (table.getFields().get(i).getName().equals(var)) {
-                return table.getFields().get(i).getType();
-            }
-        }
-        return null;
     }
 
     private String visitClass(JmmNode node, Void unused) {

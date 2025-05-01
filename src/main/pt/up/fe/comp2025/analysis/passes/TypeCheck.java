@@ -28,13 +28,7 @@ public class TypeCheck extends AnalysisVisitor {
         addVisit("AssignStatement", this::visitAssign);
 
         // Binary exprs
-        addVisit("AdditionExpr", this::visitBinaryExpr);
-        addVisit("SubtractionExpr", this::visitBinaryExpr);
-        addVisit("MultiplicationExpr", this::visitBinaryExpr);
-        addVisit("DivisionExpr", this::visitBinaryExpr);
-        addVisit("AndExpr", this::visitBinaryExpr);
-        addVisit("LessThanExpr", this::visitBinaryExpr);
-        addVisit("EqualsExpr", this::visitBinaryExpr);
+        addVisit("BinaryExpr", this::visitBinaryExpr);
 
         // Control flow
         addVisit("IfStatement", this::visitIf);
@@ -99,7 +93,7 @@ public class TypeCheck extends AnalysisVisitor {
         }
 
         Type expected = table.getReturnType(currentMethod);
-        Type actual = inferType(retNode.getChild(0));
+        Type actual = typeUtils.getExprType(retNode.getChild(0));
 
         if (!actual.getName().equals("unknown") && !typeUtils.isCompatible(expected, actual)) {
             addReport(Report.newError(Stage.SEMANTIC, retNode.getLine(), retNode.getColumn(),
@@ -112,7 +106,7 @@ public class TypeCheck extends AnalysisVisitor {
     private Void visitAssign(JmmNode assign, SymbolTable table) {
         String varName = assign.get("name");
         Type left = typeUtils.getVarType(varName, currentMethod);
-        Type right = inferType(assign.getChild(0));
+        Type right = typeUtils.getExprType(assign.getChild(0));
 
         if (assign.getChild(0).getKind().equals("ArrayInit")) {
             if (!left.isArray() || !left.getName().equals("int")) {
@@ -147,18 +141,11 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
     private Void visitBinaryExpr(JmmNode expr, SymbolTable table) {
-        Type left = inferType(expr.getChild(0));
-        Type right = inferType(expr.getChild(1));
-        String op = switch (expr.getKind()) {
-            case "AdditionExpr" -> "+";
-            case "SubtractionExpr" -> "-";
-            case "MultiplicationExpr" -> "*";
-            case "DivisionExpr" -> "/";
-            case "AndExpr" -> "&&";
-            case "LessThanExpr" -> "<";
-            case "EqualsExpr" -> "==";
-            default -> "unknown";
-        };
+        String op = expr.get("op");
+        System.out.println("HERE: " + op);
+        Type left = typeUtils.getExprType(expr.getChild(0));
+        Type right = typeUtils.getExprType(expr.getChild(1));
+
 
 
         if (left.getName().equals("unknown") || right.getName().equals("unknown")) return null;
@@ -201,7 +188,7 @@ public class TypeCheck extends AnalysisVisitor {
 
     private Void visitIf(JmmNode ifStmt, SymbolTable table) {
 
-        Type condition = inferType(ifStmt.getChild(0));
+        Type condition = typeUtils.getExprType(ifStmt.getChild(0));
 
         if (!condition.getName().equals("unknown") &&
                 (!TypeUtils.isBoolean(condition) || condition.isArray())) {
@@ -214,7 +201,7 @@ public class TypeCheck extends AnalysisVisitor {
 
     private Void visitWhile(JmmNode whileStmt, SymbolTable table) {
 
-        Type condition = inferType(whileStmt.getChild(0));
+        Type condition = typeUtils.getExprType(whileStmt.getChild(0));
 
         if (!condition.getName().equals("unknown") &&
                 (!TypeUtils.isBoolean(condition) || condition.isArray())) {
@@ -228,8 +215,8 @@ public class TypeCheck extends AnalysisVisitor {
 
 
     private Void visitArrayAccess(JmmNode access, SymbolTable table) {
-        Type arr = inferType(access.getChild(0));
-        Type index = inferType(access.getChild(1));
+        Type arr = typeUtils.getExprType(access.getChild(0));
+        Type index = typeUtils.getExprType(access.getChild(1));
 
         if (!arr.isArray()) {
             addReport(Report.newError(Stage.SEMANTIC, access.getLine(), access.getColumn(),
@@ -249,9 +236,9 @@ public class TypeCheck extends AnalysisVisitor {
             return null;
         }
 
-        Type firstType = inferType(elements.get(0));
+        Type firstType = typeUtils.getExprType(elements.get(0));
         for (JmmNode elem : elements) {
-            Type elemType = inferType(elem);
+            Type elemType = typeUtils.getExprType(elem);
             if (!elemType.getName().equals("unknown") && !elemType.equals(firstType)) {
                 addReport(Report.newError(Stage.SEMANTIC, array.getLine(), array.getColumn(),
                         "All elements in array literal must be of same type. Found: " + firstType + " and " + elemType, null));
@@ -303,7 +290,7 @@ public class TypeCheck extends AnalysisVisitor {
 
         for (int i = 0; i < Math.min(args.size(), fixedParams); i++) {
             Type expected = params.get(i).getType();
-            Type actual = inferType(args.get(i));
+            Type actual = typeUtils.getExprType(args.get(i));
             if (!typeUtils.isCompatible(expected, actual)) {
                 addReport(Report.newError(Stage.SEMANTIC, call.getLine(), call.getColumn(),
                         "Type mismatch in argument " + (i + 1) + " of method '" + methodName +
@@ -315,7 +302,7 @@ public class TypeCheck extends AnalysisVisitor {
     }
 
     private Void visitNegationExpr(JmmNode node, SymbolTable table) {
-        Type operand = inferType(node.getChild(0));
+        Type operand = typeUtils.getExprType(node.getChild(0));
 
         if (!TypeUtils.isBoolean(operand) || operand.isArray()) {
             addReport(Report.newError(Stage.SEMANTIC, node.getLine(), node.getColumn(),
@@ -325,90 +312,4 @@ public class TypeCheck extends AnalysisVisitor {
         return null;
     }
 
-
-    private Type inferType(JmmNode node) {
-
-        Type ret =  switch (node.getKind()) {
-            case "IntegerLiteral" -> {
-                yield TypeUtils.newIntType();
-            }
-            case "FieldAccess" -> {
-                String fieldName = node.get("name");
-
-                if (fieldName.equals("length")) {
-                    JmmNode target = node.getChild(0);
-                    Type targetType = inferType(target);
-
-                    // Verifica se estamos a aceder ao length de um array
-                    if (targetType.isArray()) {
-                        yield new Type("int", false); // `.length` retorna sempre int
-                    } else {
-                        addReport(Report.newError(Stage.SEMANTIC, node.getLine(), node.getColumn(),
-                                "Trying to access '.length' of non-array variable: " + targetType, null));
-                        yield new Type("unknown", false);
-                    }
-                } else {
-                    yield new Type("unknown", false); // you can later add support for object fields
-                }
-            }
-            case "BooleanLiteral" -> TypeUtils.newBooleanType();
-            case "VarRefExpr" -> {
-                String varName = node.get("name");
-
-                if (symbolTable.getMethods().contains(varName)) {
-                    yield new Type("unknown", false); // ignora
-                }
-                if (varName.equals("true") || varName.equals("false")) {
-                    yield TypeUtils.newBooleanType();
-                }
-                try {
-                    yield typeUtils.getVarType(varName, currentMethod);
-                } catch (RuntimeException e) {
-                    yield new Type("unknown", false);
-                }
-            }
-            case "ThisExpr" -> {
-                if ("main".equals(currentMethod)) {
-                    addReport(Report.newError(Stage.SEMANTIC, node.getLine(), node.getColumn(),
-                            "'this' cannot be used in a static method like 'main'", null));
-                    yield new Type("unknown", false);
-                }
-                else yield new Type(symbolTable.getClassName(), false);
-            }
-            case "NewArray" -> TypeUtils.newIntArrayType();
-            case "NewObject" -> {
-                if (node.get("name").startsWith("VarArgs")) yield new Type("int...", true);
-                else yield new Type(node.get("name"), false);
-            }
-            case "ArrayAccess" -> {
-                Type arr = inferType(node.getChild(0));
-                if (arr.getName().equals("int...")) yield new Type("int",false);
-                else yield arr.isArray() ? new Type(arr.getName(), false) : new Type("unknown", false);
-            }
-            case "BinaryExpr" -> {
-                String op = node.get("op");
-                yield (op.equals("&&") || op.equals("<") || op.equals("==")) ?
-                        TypeUtils.newBooleanType() : TypeUtils.newIntType();
-            }
-            case "AdditionExpr", "SubtractionExpr", "MultiplicationExpr", "DivisionExpr" -> TypeUtils.newIntType();
-            case "AndExpr", "LessThanExpr", "EqualsExpr" -> TypeUtils.newBooleanType();
-
-            case "ArrayInit" -> {
-                Type elemType = inferType(node.getChild(0));
-                if (node.getChildren().isEmpty()) yield TypeUtils.newIntArrayType();
-                else yield new Type(elemType.getName(), true);
-            }
-            case "VarArgs", "VarArg", "VarArgInt","VarArgsTest" -> new Type("int...", true);
-            case "VarArgBool" -> new Type("boolean", true);
-            case "NegationExpr" -> TypeUtils.newBooleanType();
-            case "MethodCall", "LocalMethodCall" -> {
-                String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
-                if (!symbolTable.getMethods().contains(method)) yield new Type("unknown", false);
-                else yield symbolTable.getReturnType(method);
-            }
-
-            default -> new Type("unknown", false);
-        };
-        return ret;
-    }
 }
