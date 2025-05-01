@@ -91,13 +91,13 @@ paramList
     ;
 
 stmt
-    : WHILE LEFT_PARENTHESES expr RIGHT_PARENTHESES stmt             #WhileStatement
-    | 'if' LEFT_PARENTHESES expr RIGHT_PARENTHESES stmt ('else' stmt)?  #IfStatement
-    | LEFT_BRACE stmt* RIGHT_BRACE                                   #BlockStatement
-    | name=ID EQUAL expr SEMI_COLON                                       #AssignStatement
-    | name=ID LEFT_BRACKET expr RIGHT_BRACKET EQUAL expr SEMI_COLON       #ArrayAssignStatement
-    | expr SEMI_COLON                                                #ExprStatement
-    | RETURN expr SEMI_COLON                                         #ReturnStatement
+    : WHILE LEFT_PARENTHESES expr RIGHT_PARENTHESES stmt                        #WhileStatement
+    | 'if' LEFT_PARENTHESES expr RIGHT_PARENTHESES stmt ('else' stmt)?          #IfStatement
+    | LEFT_BRACE stmt* RIGHT_BRACE                                              #BlockStatement
+    | name=ID EQUAL expr SEMI_COLON                                             #AssignStatement
+    | name=ID LEFT_BRACKET expr RIGHT_BRACKET EQUAL expr SEMI_COLON             #ArrayAssignStatement
+    | expr SEMI_COLON                                                           #ExprStatement
+    | RETURN expr SEMI_COLON                                                    #ReturnStatement
     ;
 
 expr
@@ -115,8 +115,8 @@ expr
     | 'new' name=ID LEFT_PARENTHESES RIGHT_PARENTHESES                         #NewObject
     | NOT expr                                                                 #NegationExpr
     | LEFT_PARENTHESES expr RIGHT_PARENTHESES                                  #ParenthesesExpr
-    | value=TRUE                                                                     #BooleanLiteral
-    | value=FALSE                                                                    #BooleanLiteral
+    | value=TRUE                                                               #BooleanLiteral
+    | value=FALSE                                                              #BooleanLiteral
     | value=INTEGER                                                            #IntegerLiteral
     | name=ID                                                                  #VarRefExpr
     | 'this'                                                                   #ThisExpr
