@@ -14,47 +14,53 @@ import java.util.List;
  */
 public enum Kind {
     PROGRAM,
-    IMPORT_DECL, // added
-    IMPORT_PART, // added
+    IMPORT_DECL,
+    IMPORT_PART,
     CLASS_DECL,
-    SUPER_CLASS_DECL, // added
     VAR_DECL,
-    FIELD_DECL, // added
-    TYPE,
-    ARRAY_TYPE, // added
     METHOD_DECL,
-    NORMAL_METHOD_DECL, // added
-    MAIN_METHOD_DECL, // added
-    NORMAL_PARAM, // added
+    PARAM_DECL,
+
+    NORMAL_PARAM,
     VARARG_PARAM,
-    PARAM_LIST, // added
-    STMT,
-    EXPR_STMT, // added
-    WHILE_STMT, // added
-    IF_STMT, // added
-    METHOD_CALL_EXPR, // added
-    LOCAL_METHOD_CALL_EXPR, // added
-    ARGUMENT, // added
-    NEW_CLASS_EXPR, // added
-    NEW_ARRAY_EXPR, // added
-    ARRAY_ACCESS_EXPR, // added
-    ARRAY_LITERAL_EXPR, // added
-    THIS_EXPR, // added
-    ASSIGN_STMT,
-    RETURN_STMT,
-    EXPR,
-    BINARY_EXPR,
+    PARAM_LIST,
+
+    VAR_ARG_INT,
+    VAR_ARG_BOOL,
+    INT_TYPE,
+    BOOLEAN_TYPE,
+    CLASS_TYPE,
+    CLASS_ARRAY_TYPE,
+    INT_ARRAY_TYPE,
+    VOID_TYPE,
+
+    WHILE_STATEMENT,
+    IF_STATEMENT,
+    BLOCK_STATEMENT,
+    ASSIGN_STATEMENT,
+    ARRAY_ASSIGN_STATEMENT,
+    EXPR_STATEMENT,
+    RETURN_STATEMENT,
+
+
+    METHOD_CALL,
+    FIELD_ACCESS,
+    ARRAY_ACCESS,
+    MULTIPLICATION_EXPR,
     ADDITION_EXPR,
     SUBTRACTION_EXPR,
-    MULTIPLICATION_EXPR,
     DIVISION_EXPR,
     AND_EXPR,
-    LESS_EXPR,
-    EQUALS_EXPR,
-    INTEGER_LITERAL,
-    BOOLEAN_LITERAL,
+    LESS_THAN_EXPR,
+    ARRAY_INIT,
+    NEW_ARRAY,
+    NEW_OBJECT,
     NEGATION_EXPR,
-    VAR_REF_EXPR;
+    PARENTHESES_EXPR,
+    BOOLEAN_LITERAL,
+    INTEGER_LITERAL,
+    VAR_REF_EXPR,
+    THIS_EXPR;
 
     private final String name;
 
