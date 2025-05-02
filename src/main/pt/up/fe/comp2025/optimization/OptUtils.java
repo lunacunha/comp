@@ -12,19 +12,18 @@ import pt.up.fe.specs.util.exceptions.NotImplementedException;
  */
 public class OptUtils {
 
-    private final AccumulatorMap<String> temporaries;
+    private static final AccumulatorMap<String> temporaries = new AccumulatorMap<>();
     private final TypeUtils types;
 
     public OptUtils(TypeUtils types) {
         this.types = types;
-        this.temporaries = new AccumulatorMap<>();
     }
 
-    public String nextTemp() {
+    public static String nextTemp() {
         return nextTemp("tmp");
     }
 
-    public String nextTemp(String prefix) {
+    public static String nextTemp(String prefix) {
         var nextTempNum = temporaries.add(prefix) - 1;
         return prefix + nextTempNum;
     }
@@ -45,6 +44,13 @@ public class OptUtils {
             case "BooleanLiteral","BooleanType":
                 ret += ".bool";
                 break;
+            case "BinaryExpr":
+                if (typeNode.get("op").equals("&&") || typeNode.get("op").equals("<")) {
+                    ret += ".bool";
+                    break;
+                }
+                ret += ".i32";
+                break;
             default:
                 ret += ".V";
                 break;
@@ -55,7 +61,7 @@ public class OptUtils {
     public String toOllirType(Type type) {
         if (type.isArray()) {
             return ".array." + switch (type.getName()) {
-                case "int" -> "i32";
+                case "int","int..." -> "i32";
                 case "boolean" -> "bool";
                 default -> type.getName();
             };

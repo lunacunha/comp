@@ -108,7 +108,7 @@ expr
     | left=expr op=(PLUS | SUB) right=expr                                     #BinaryExpr
     | left=expr op=LESS_THAN right=expr                                        #BinaryExpr
     | left=expr op=AND right=expr                                              #BinaryExpr
-    | LEFT_BRACKET (expr (',' expr)*)? RIGHT_BRACKET                           #ArrayInit
+    | LEFT_BRACKET (expr (',' expr)*)? RIGHT_BRACKET                           #ArrayInit //I THINK THIS DOESN'T EXIST
     | 'new' INT LEFT_BRACKET expr RIGHT_BRACKET                                #NewArray
     | 'new' name=ID LEFT_PARENTHESES RIGHT_PARENTHESES                         #NewObject
     | NOT expr                                                                 #NegationExpr
