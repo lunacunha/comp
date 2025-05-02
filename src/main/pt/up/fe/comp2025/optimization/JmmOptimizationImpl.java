@@ -1,10 +1,13 @@
 package pt.up.fe.comp2025.optimization;
 
 import pt.up.fe.comp.jmm.analysis.JmmSemanticsResult;
+import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.ollir.JmmOptimization;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
+import pt.up.fe.comp2025.CompilerConfig;
 
 import java.util.Collections;
+import java.util.HashMap;
 
 public class JmmOptimizationImpl implements JmmOptimization {
 
@@ -25,7 +28,16 @@ public class JmmOptimizationImpl implements JmmOptimization {
     @Override
     public JmmSemanticsResult optimize(JmmSemanticsResult semanticsResult) {
 
-        //TODO: Do your AST-based optimizations here
+        if (!CompilerConfig.getOptimize(semanticsResult.getConfig()))
+            return semanticsResult;
+
+        AstOptimizationVisitor visitor = new AstOptimizationVisitor();
+
+        // fixed-point loop: enquanto otimizar algo, volta a correr o visitor
+        do {
+            visitor.resetOptimized();                            // limpa flag
+            visitor.visit(semanticsResult.getRootNode(), false); // 1 passada de fold+prop
+        } while (visitor.hasOptimized());
 
         return semanticsResult;
     }
