@@ -27,12 +27,7 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
         addVisit(Kind.BOOLEAN_LITERAL.getNodeName(), this::visitLiteral);
         addVisit(Kind.VAR_REF_EXPR.getNodeName(), this::visitVarRefExpr);
 
-        addVisit(Kind.ADDITION_EXPR.getNodeName(), this::visitBinOp);
-        addVisit(Kind.SUBTRACTION_EXPR.getNodeName(), this::visitBinOp);
-        addVisit(Kind.MULTIPLICATION_EXPR.getNodeName(), this::visitBinOp);
-        addVisit(Kind.DIVISION_EXPR.getNodeName(), this::visitBinOp);
-        addVisit(Kind.LESS_THAN_EXPR.getNodeName(), this::visitBinOp);
-        addVisit(Kind.AND_EXPR.getNodeName(), this::visitBinOp);
+        addVisit(Kind.BINARY_EXPR.getNodeName(), this::visitBinaryExpr);
 
         setDefaultVisit(this::defaultVisit);
     }
@@ -73,118 +68,54 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
         return changed;
     }
 
-    private Boolean visitNegationExpr(JmmNode node, Boolean data) {
-        JmmNode child = node.getChildren().get(0);
-        boolean childChanged = visit(child, false); // Optimize child first
-
-        if (isConstant(child)) {
-            Object value = getNodeValue(child);
-            Object negated = null;
-
-            if (value instanceof Integer) {
-                negated = -((Integer) value);
-            } else if (value instanceof Boolean) {
-                negated = !((Boolean) value);
-            }
-
-            if (negated != null) {
-                JmmNode parent = node.getParent();
-                int index = parent.getChildren().indexOf(node);
-                JmmNode newNode;
-
-                if (negated instanceof Integer) {
-                    newNode = new JmmNodeImpl(List.of(Kind.INTEGER_LITERAL.getNodeName()));
-                } else {
-                    newNode = new JmmNodeImpl(List.of(Kind.BOOLEAN_LITERAL.getNodeName()));
-                }
-
-                newNode.put("value", negated.toString());
-                parent.removeChild(index);
-                parent.add(newNode, index);
-                optimized = true;
-
-                System.out.println("Folded negation: " + value + " -> " + negated);
-                return true;
-            }
-        }
-
-        return childChanged;
-    }
-
     private Boolean visitAssignStatement(JmmNode node, Boolean data) {
         String varName = node.get("name");
         JmmNode valueNode = node.getChildren().get(0);
 
-        // Optimize the right-hand side expression
+
         boolean rightSideChanged = visit(valueNode, false);
 
-        // Make sure we have a constants map for the current method
         constantValues.putIfAbsent(currentMethod, new HashMap<>());
         Map<String, Object> methodConstants = constantValues.get(currentMethod);
 
-        // Check if the right-hand side is a constant
-        boolean isConst = false;
-        Object newValue = null;
 
         if (Kind.INTEGER_LITERAL.check(valueNode)) {
-            newValue = Integer.parseInt(valueNode.get("value"));
-            isConst = true;
+            int newValue = Integer.parseInt(valueNode.get("value"));
+            methodConstants.put(varName, newValue);
         } else if (Kind.BOOLEAN_LITERAL.check(valueNode)) {
-            newValue = Boolean.parseBoolean(valueNode.get("value"));
-            isConst = true;
-        }
-
-        boolean valueChanged = false;
-
-        if (isConst) {
-            // Check if the value is different from what we already have
-            if (!methodConstants.containsKey(varName) || !Objects.equals(methodConstants.get(varName), newValue)) {
-                methodConstants.put(varName, newValue);
-                valueChanged = true;
-                optimized = true;
-                System.out.println("Updated constant: " + varName + " = " + newValue);
-            }
+            boolean newValue = Boolean.parseBoolean(valueNode.get("value"));
+            methodConstants.put(varName, newValue);
         } else {
-            // If not a constant and we have it marked as one, remove it
-            if (methodConstants.containsKey(varName)) {
-                methodConstants.remove(varName);
-                valueChanged = true;
-                optimized = true;
-                System.out.println("Removed constant: " + varName);
-            }
+            methodConstants.remove(varName);
         }
 
-        return rightSideChanged || valueChanged;
+        return rightSideChanged;
     }
 
-    // Constant propagation
+
     private Boolean visitVarRefExpr(JmmNode node, Boolean data) {
         String varName = node.get("name");
 
-        // Check if the variable has a known constant value
         if (constantValues.containsKey(currentMethod) &&
                 constantValues.get(currentMethod).containsKey(varName)) {
 
             Object value = constantValues.get(currentMethod).get(varName);
 
-            // Already a constant with the same value?
             if (isConstant(node)) {
                 Object currentValue = getNodeValue(node);
                 if (Objects.equals(currentValue, value)) {
-                    return false; // Already propagated
+                    return false;
                 }
             }
 
-            // Create a new constant node to replace the variable reference
             JmmNode constantNode;
             if (value instanceof Integer) {
                 constantNode = new JmmNodeImpl(List.of(Kind.INTEGER_LITERAL.getNodeName()));
-            } else { // Boolean
+            } else {
                 constantNode = new JmmNodeImpl(List.of(Kind.BOOLEAN_LITERAL.getNodeName()));
             }
             constantNode.put("value", value.toString());
 
-            // Replace the variable reference with the constant
             JmmNode parent = node.getParent();
             int index = parent.getChildren().indexOf(node);
             parent.removeChild(index);
@@ -198,38 +129,46 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
         return false;
     }
 
-    // Constant folding
-    private Boolean visitBinOp(JmmNode node, Boolean data) {
-        // Visit operands first for potential optimization
-        JmmNode leftOperand = node.getChildren().get(0);
-        JmmNode rightOperand = node.getChildren().get(1);
+    private Boolean visitBinaryExpr(JmmNode node, Boolean dummy) {
 
-        boolean leftChanged = visit(leftOperand, false);
-        boolean rightChanged = visit(rightOperand, false);
+        JmmNode left  = node.getChildren().get(0);
+        JmmNode right = node.getChildren().get(1);
+        boolean leftChanged = visit(left, false);
+        boolean rightChanged = visit(right, false);
 
-        // Check if both operands are constants after optimization
-        if (isConstant(leftOperand) && isConstant(rightOperand)) {
-            String kind = node.getKind();
-            Object result = evaluateConstantExpression(leftOperand, rightOperand, kind);
+        if (isConstant(left) && isConstant(right)) {
+            String op = node.get("op");
+            Object leftVal = getNodeValue(left);
+            Object rightVal = getNodeValue(right);
+            Object result = switch (op) {
+                case "+"  -> ((Integer) leftVal) + ((Integer) rightVal);
+                case "-"  -> ((Integer) leftVal) - ((Integer) rightVal);
+                case "*"  -> ((Integer) leftVal) * ((Integer) rightVal);
+                case "/"  -> {
+                    int denom = (Integer) rightVal;
+                    yield denom != 0 ? ((Integer) leftVal) / denom : null;
+                }
+                case "<"  -> ((Integer) leftVal) < ((Integer) rightVal);
+                case "&&" -> ((Boolean) leftVal) && ((Boolean) rightVal);
+                default   -> null;
+            };
 
             if (result != null) {
-                // Replace the binary operation with a constant
+
                 JmmNode parent = node.getParent();
-                int index = parent.getChildren().indexOf(node);
-                JmmNode constantNode;
+                int idx = parent.getChildren().indexOf(node);
+                String litKind = (result instanceof Integer)
+                        ? Kind.INTEGER_LITERAL.getNodeName()
+                        : Kind.BOOLEAN_LITERAL.getNodeName();
 
-                if (result instanceof Integer) {
-                    constantNode = new JmmNodeImpl(List.of(Kind.INTEGER_LITERAL.getNodeName()));
-                } else { // Boolean
-                    constantNode = new JmmNodeImpl(List.of(Kind.BOOLEAN_LITERAL.getNodeName()));
-                }
+                JmmNode literal = new JmmNodeImpl(List.of(litKind));
+                literal.put("value", result.toString());
 
-                constantNode.put("value", result.toString());
-                parent.removeChild(index);
-                parent.add(constantNode, index);
+                parent.removeChild(idx);
+                parent.add(literal, idx);
 
-                System.out.println("Folded binary op: " + kind + " -> " + result);
                 optimized = true;
+                System.out.println("Folded " + op + ": " + leftVal + " " + op + " " + rightVal + " -> " + result);
                 return true;
             }
         }
@@ -237,8 +176,8 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
         return leftChanged || rightChanged;
     }
 
+
     private Boolean visitLiteral(JmmNode node, Boolean data) {
-        // Literals are already optimized
         return false;
     }
 
@@ -274,41 +213,6 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
         return null;
     }
 
-    private Object evaluateConstantExpression(JmmNode left, JmmNode right, String kindName) {
-        Object leftVal = getNodeValue(left);
-        Object rightVal = getNodeValue(right);
-
-        if (leftVal instanceof Integer && rightVal instanceof Integer) {
-            int l = (Integer) leftVal, r = (Integer) rightVal;
-            switch (Kind.fromString(kindName)) {
-                case ADDITION_EXPR:
-                    return l + r;
-                case SUBTRACTION_EXPR:
-                    return l - r;
-                case MULTIPLICATION_EXPR:
-                    return l * r;
-                case DIVISION_EXPR:
-                    if (r == 0) return null;
-                    return l / r;
-                case LESS_THAN_EXPR:
-                    return l < r;
-                default:
-                    return null;
-            }
-        }
-
-        if (leftVal instanceof Boolean && rightVal instanceof Boolean) {
-            boolean lb = (Boolean) leftVal, rb = (Boolean) rightVal;
-            switch (Kind.fromString(kindName)) {
-                case AND_EXPR:
-                    return lb && rb;
-                default:
-                    break;
-            }
-        }
-
-        return null;
-    }
 
     public boolean hasOptimized() {
         return optimized;

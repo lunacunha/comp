@@ -28,28 +28,16 @@ public class JmmOptimizationImpl implements JmmOptimization {
     @Override
     public JmmSemanticsResult optimize(JmmSemanticsResult semanticsResult) {
 
-        if (!CompilerConfig.getOptimize(semanticsResult.getConfig())) return semanticsResult;
+        if (!CompilerConfig.getOptimize(semanticsResult.getConfig()))
+            return semanticsResult;
 
         AstOptimizationVisitor visitor = new AstOptimizationVisitor();
 
-        System.out.println("=== constFoldSequence START ===");
-
-        visitor.visit(semanticsResult.getRootNode(), false);
-
-        System.out.println("AST antes do folding:\n" +
-                semanticsResult.getRootNode().toTree()  // ou toString() se não tiver toTree()
-        );
-
-        boolean changed = visitor.visit(semanticsResult.getRootNode(), false);
-
-        System.out.println("visitor.visit returned: " + changed);
-        System.out.println("visitor.hasOptimized(): " + visitor.hasOptimized());
-
-        // imprime a AST depois da dobra
-        System.out.println("AST depois do folding:\n" +
-                semanticsResult.getRootNode().toTree()
-        );
-        System.out.println("=== constFoldSequence END ===");
+        // fixed-point loop: enquanto otimizar algo, volta a correr o visitor
+        do {
+            visitor.resetOptimized();                            // limpa flag
+            visitor.visit(semanticsResult.getRootNode(), false); // 1 passada de fold+prop
+        } while (visitor.hasOptimized());
 
         return semanticsResult;
     }
