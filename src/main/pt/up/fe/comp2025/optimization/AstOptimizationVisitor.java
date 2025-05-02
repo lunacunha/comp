@@ -7,7 +7,6 @@ import pt.up.fe.comp2025.ast.Kind;
 
 import java.util.*;
 
-
 public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
     private final Map<String, Map<String, Object>> constantValues = new HashMap<>();
     private String currentMethod = "";
@@ -18,26 +17,22 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
     }
 
     protected void buildVisitor() {
-        addVisit("Program", this::visitProgram);
-        addVisit("ClassDecl", this::visitClassDecl);
-        addVisit("MethodDecl", this::visitMethodDecl);
-        addVisit("AssignStatement", this::visitAssignStatement);
-        addVisit("ReturnStatement", this::visitReturnStatement);
+        addVisit(Kind.PROGRAM.getNodeName(), this::visitProgram);
+        addVisit(Kind.CLASS_DECL.getNodeName(), this::visitClassDecl);
+        addVisit(Kind.METHOD_DECL.getNodeName(), this::visitMethodDecl);
+        addVisit(Kind.ASSIGN_STATEMENT.getNodeName(), this::visitAssignStatement);
+        addVisit(Kind.RETURN_STATEMENT.getNodeName(), this::visitReturnStatement);
 
-        addVisit("IntegerLiteral", this::visitLiteral);
-        addVisit("BooleanLiteral", this::visitLiteral);
-        addVisit("VarRefExpr", this::visitVarRefExpr);
+        addVisit(Kind.INTEGER_LITERAL.getNodeName(), this::visitLiteral);
+        addVisit(Kind.BOOLEAN_LITERAL.getNodeName(), this::visitLiteral);
+        addVisit(Kind.VAR_REF_EXPR.getNodeName(), this::visitVarRefExpr);
 
-        addVisit("AdditionExpr", this::visitBinOp);
-        addVisit("SubtractionExpr", this::visitBinOp);
-        addVisit("MultiplicationExpr", this::visitBinOp);
-        addVisit("DivisionExpr", this::visitBinOp);
-        addVisit("LessThanExpr", this::visitBinOp);
-        addVisit("EqualsExpr", this::visitBinOp);
-        addVisit("AndExpr", this::visitBinOp);
-        addVisit("OrExpr", this::visitBinOp);
-
-        addVisit("NegationExpr", this::visitNegationExpr);
+        addVisit(Kind.ADDITION_EXPR.getNodeName(), this::visitBinOp);
+        addVisit(Kind.SUBTRACTION_EXPR.getNodeName(), this::visitBinOp);
+        addVisit(Kind.MULTIPLICATION_EXPR.getNodeName(), this::visitBinOp);
+        addVisit(Kind.DIVISION_EXPR.getNodeName(), this::visitBinOp);
+        addVisit(Kind.LESS_THAN_EXPR.getNodeName(), this::visitBinOp);
+        addVisit(Kind.AND_EXPR.getNodeName(), this::visitBinOp);
 
         setDefaultVisit(this::defaultVisit);
     }
@@ -252,6 +247,7 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
         if (!node.getChildren().isEmpty()) {
             changed = visit(node.getChildren().get(0), false);
         }
+        System.out.println(node);
         return changed;
     }
 
@@ -265,66 +261,50 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
     }
 
     private boolean isConstant(JmmNode node) {
-        return node.getKind().equals("IntegerLiteral") || node.getKind().equals("BooleanLiteral");
+        return Kind.INTEGER_LITERAL.check(node) || Kind.BOOLEAN_LITERAL.check(node);
     }
 
     private Object getNodeValue(JmmNode node) {
-        try {
-            if (node.getKind().equals("IntegerLiteral")) {
-                return Integer.parseInt(node.get("value"));
-            } else if (node.getKind().equals("BooleanLiteral")) {
-                return Boolean.parseBoolean(node.get("value"));
-            }
-        } catch (Exception e) {
-            System.err.println("Error getting node value: " + e.getMessage());
+        if (Kind.INTEGER_LITERAL.check(node)) {
+            return Integer.parseInt(node.get("value"));
+        }
+        if (Kind.BOOLEAN_LITERAL.check(node)) {
+            return Boolean.parseBoolean(node.get("value"));
         }
         return null;
     }
 
-    private Object evaluateConstantExpression(JmmNode left, JmmNode right, String operator) {
-        Object leftValue = getNodeValue(left);
-        Object rightValue = getNodeValue(right);
+    private Object evaluateConstantExpression(JmmNode left, JmmNode right, String kindName) {
+        Object leftVal = getNodeValue(left);
+        Object rightVal = getNodeValue(right);
 
-        if (leftValue == null || rightValue == null) {
-            return null;
+        if (leftVal instanceof Integer && rightVal instanceof Integer) {
+            int l = (Integer) leftVal, r = (Integer) rightVal;
+            switch (Kind.fromString(kindName)) {
+                case ADDITION_EXPR:
+                    return l + r;
+                case SUBTRACTION_EXPR:
+                    return l - r;
+                case MULTIPLICATION_EXPR:
+                    return l * r;
+                case DIVISION_EXPR:
+                    if (r == 0) return null;
+                    return l / r;
+                case LESS_THAN_EXPR:
+                    return l < r;
+                default:
+                    return null;
+            }
         }
 
-        try {
-            if (leftValue instanceof Integer && rightValue instanceof Integer) {
-                int leftInt = (Integer) leftValue;
-                int rightInt = (Integer) rightValue;
-
-                switch (operator) {
-                    case "AdditionExpr":
-                        return leftInt + rightInt;
-                    case "SubtractionExpr":
-                        return leftInt - rightInt;
-                    case "MultiplicationExpr":
-                        return leftInt * rightInt;
-                    case "DivisionExpr":
-                        if (rightInt == 0) return null; // Avoid division by zero
-                        return leftInt / rightInt;
-                    case "LessThanExpr":
-                        return leftInt < rightInt;
-                    case "EqualsExpr":
-                        return leftInt == rightInt;
-                }
-            } else if (leftValue instanceof Boolean && rightValue instanceof Boolean) {
-                boolean leftBool = (Boolean) leftValue;
-                boolean rightBool = (Boolean) rightValue;
-
-                switch (operator) {
-                    case "AndExpr":
-                        return leftBool && rightBool;
-                    case "OrExpr":
-                        return leftBool || rightBool;
-                    case "EqualsExpr":
-                        return leftBool == rightBool;
-                }
+        if (leftVal instanceof Boolean && rightVal instanceof Boolean) {
+            boolean lb = (Boolean) leftVal, rb = (Boolean) rightVal;
+            switch (Kind.fromString(kindName)) {
+                case AND_EXPR:
+                    return lb && rb;
+                default:
+                    break;
             }
-        } catch (Exception e) {
-            System.err.println("Error evaluating expression: " + e.getMessage());
-            return null;
         }
 
         return null;

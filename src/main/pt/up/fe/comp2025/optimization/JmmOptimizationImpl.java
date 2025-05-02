@@ -4,8 +4,10 @@ import pt.up.fe.comp.jmm.analysis.JmmSemanticsResult;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.ollir.JmmOptimization;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
+import pt.up.fe.comp2025.CompilerConfig;
 
 import java.util.Collections;
+import java.util.HashMap;
 
 public class JmmOptimizationImpl implements JmmOptimization {
 
@@ -26,45 +28,30 @@ public class JmmOptimizationImpl implements JmmOptimization {
     @Override
     public JmmSemanticsResult optimize(JmmSemanticsResult semanticsResult) {
 
-        //TODO: Do your AST-based optimizations here
+        if (!CompilerConfig.getOptimize(semanticsResult.getConfig())) return semanticsResult;
 
-        System.out.println("\nOptimizing AST..." + semanticsResult.getRootNode().getChildren());
-
-        JmmNode rootNode = semanticsResult.getRootNode();
-
-        // Criar o visitor de otimização
         AstOptimizationVisitor visitor = new AstOptimizationVisitor();
 
-        // Aplicar otimizações em um loop até que não possam ser feitas mais melhorias
-        boolean madeChanges;
-        int iteration = 0;
+        System.out.println("=== constFoldSequence START ===");
 
-        do {
-            System.out.println("Optimization iteration: " + iteration);
-            visitor.resetOptimized();
-            visitor.visit(rootNode, false);
-            madeChanges = visitor.hasOptimized();
-            System.out.println("Made changes? " + madeChanges);
-            iteration++;
+        visitor.visit(semanticsResult.getRootNode(), false);
 
-            // Optional: prevent infinite loop in case of error
-            if (iteration > 100) {
-                System.out.println("Warning: exceeded 100 optimization iterations — possible infinite loop");
-                break;
-            }
-
-        } while (madeChanges);
-
-        System.out.println("Finished AST optimization after " + iteration + " iteration(s).");
-
-        return new JmmSemanticsResult(
-                rootNode,                            	// AST otimizada
-                semanticsResult.getSymbolTable(),    	// mesma symbol table
-                semanticsResult.getReports(),        	// mesmos reports
-                semanticsResult.getConfig()          	// mesma config
+        System.out.println("AST antes do folding:\n" +
+                semanticsResult.getRootNode().toTree()  // ou toString() se não tiver toTree()
         );
 
-        //return semanticsResult;
+        boolean changed = visitor.visit(semanticsResult.getRootNode(), false);
+
+        System.out.println("visitor.visit returned: " + changed);
+        System.out.println("visitor.hasOptimized(): " + visitor.hasOptimized());
+
+        // imprime a AST depois da dobra
+        System.out.println("AST depois do folding:\n" +
+                semanticsResult.getRootNode().toTree()
+        );
+        System.out.println("=== constFoldSequence END ===");
+
+        return semanticsResult;
     }
 
     @Override

@@ -14,14 +14,14 @@ public class UndeclaredMethod extends AnalysisVisitor {
 
     @Override
     public void buildVisitor() {
-        addVisit(Kind.LOCAL_METHOD_CALL_EXPR.getNodeName(), this::visitMethodCall);
-        addVisit(Kind.METHOD_CALL_EXPR.getNodeName(), this::visitMethodCall);
+        //addVisit(Kind.LOCAL_METHOD_CALL_EXPR.getNodeName(), this::visitMethodCall);
+        //addVisit(Kind.METHOD_CALL_EXPR.getNodeName(), this::visitMethodCall);
 
         addVisit(Kind.IMPORT_DECL.getNodeName(), this::visitImportDecl);
     }
 
     private Void visitMethodCall(JmmNode node, SymbolTable table) {
-        String methodName = node.getKind().equals(Kind.LOCAL_METHOD_CALL_EXPR.getNodeName())
+        /*String methodName = node.getKind().equals(Kind.LOCAL_METHOD_CALL_EXPR.getNodeName())
                 ? node.get("name")
                 : node.get("methodName");
 
@@ -31,7 +31,7 @@ public class UndeclaredMethod extends AnalysisVisitor {
 
         addReport(Report.newError(Stage.SEMANTIC, node.getLine(), node.getColumn(),
                 "Method '" + methodName + "' was not declared", null));
-
+        */
         return null;
     }
 
