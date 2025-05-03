@@ -142,7 +142,6 @@ public class TypeCheck extends AnalysisVisitor {
 
     private Void visitBinaryExpr(JmmNode expr, SymbolTable table) {
         String op = expr.get("op");
-        System.out.println("HERE: " + op);
         Type left = typeUtils.getExprType(expr.getChild(0));
         Type right = typeUtils.getExprType(expr.getChild(1));
 

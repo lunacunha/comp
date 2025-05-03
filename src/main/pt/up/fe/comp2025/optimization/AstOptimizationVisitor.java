@@ -121,7 +121,6 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
             parent.removeChild(index);
             parent.add(constantNode, index);
 
-            System.out.println("Propagated constant: " + varName + " = " + value);
             optimized = true;
             return true;
         }
@@ -168,7 +167,6 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
                 parent.add(literal, idx);
 
                 optimized = true;
-                System.out.println("Folded " + op + ": " + leftVal + " " + op + " " + rightVal + " -> " + result);
                 return true;
             }
         }
@@ -186,7 +184,6 @@ public class AstOptimizationVisitor extends AJmmVisitor<Boolean, Boolean> {
         if (!node.getChildren().isEmpty()) {
             changed = visit(node.getChildren().get(0), false);
         }
-        System.out.println(node);
         return changed;
     }
 

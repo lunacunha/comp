@@ -50,7 +50,7 @@ public class JmmParserImpl implements JmmParser {
             var r = AntlrParser.parse(lex, parser, startingRule, config);
 
             if (r.getRootNode() != null) {
-                System.out.println("AST:\n" + r.getRootNode().toTree());
+                //System.out.println("AST:\n" + r.getRootNode().toTree());
             }
 
             return r;
