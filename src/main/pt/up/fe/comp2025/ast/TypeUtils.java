@@ -189,9 +189,10 @@ public class TypeUtils {
             case "VarArgBool" -> new Type("boolean", true);
             case "NegationExpr" -> TypeUtils.newBooleanType();
             case "MethodCall", "LocalMethodCall" -> {
-                String method = node.hasAttribute("methodName") ? node.get("methodName") : node.get("name");
-                if (!table.getMethods().contains(method)) yield new Type("unknown", false);
-                else yield table.getReturnType(method);
+                String method = node.get("name");
+                if (table.getMethods().contains(method)) yield table.getReturnType(method);
+                if (table.getImports().contains(method)) yield new Type(method, false);
+                else yield new Type("unknown", false);
             }
 
             default -> new Type("unknown", false);

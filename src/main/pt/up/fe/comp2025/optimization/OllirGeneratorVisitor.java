@@ -68,8 +68,9 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         JmmNode valueNode = node.getChild(1);
 
         OllirExprResult index = exprVisitor.visit(indexNode);
-
         OllirExprResult value = exprVisitor.visit(valueNode);
+        code.append(index.getComputation());
+        code.append(value.getComputation());
         String type = ollirTypes.toOllirType(node.getChild(1));
 
         code.append(arrayName + "[" + index.getCode() + "]" + type + SPACE + ASSIGN + type + SPACE + value.getCode() + END_STMT);
@@ -77,8 +78,18 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return code.toString();
     }
 
-    private String visitWhileStatement(JmmNode jmmNode, Void unused) {
-        return null; //TODO
+    private String visitWhileStatement(JmmNode node, Void unused) {
+        StringBuilder ret = new StringBuilder();
+        String whileLabel = ollirTypes.nextTemp("while");
+        String endifLabel = ollirTypes.nextTemp("endif");
+
+        OllirExprResult cond = exprVisitor.visit(node.getChild(0));
+        String block = visit(node.getChild(1));
+
+        ret.append(whileLabel + ":\n" + cond.getComputation() + "if (!.bool " + cond.getCode() + ") goto " + endifLabel + END_STMT);
+        ret.append(block + "goto " + whileLabel + END_STMT+ endifLabel + ":\n");
+
+        return ret.toString();
     }
 
     private String visitBlockStatement(JmmNode jmmNode, Void unused) {
@@ -124,7 +135,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         boolean isField = exprVisitor.isField(node);
         String assigned = node.get("name");
-        String type = ollirTypes.toOllirType(node.getChild(0));
+        String type = ollirTypes.toOllirType(types.getExprType(node.getChild(0)));
 
         if (isField) {
             code.append("putfield(this, " + assigned + type + ", " + rhs.getCode() + ").V" + END_STMT);

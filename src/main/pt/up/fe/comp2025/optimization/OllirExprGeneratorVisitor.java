@@ -7,6 +7,9 @@ import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.ast.PreorderJmmVisitor;
 import pt.up.fe.comp2025.ast.TypeUtils;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static pt.up.fe.comp2025.ast.Kind.*;
 
 /**
@@ -56,7 +59,7 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
     }
 
     private OllirExprResult visitThisExpr(JmmNode node, Void unused) {
-        return new OllirExprResult("this" + node.getAncestor(CLASS_DECL).get().get("name"));
+        return new OllirExprResult("this." + node.getAncestor(CLASS_DECL).get().get("name"));
     }
 
     private OllirExprResult visitIntegerLiteral(JmmNode node, Void unused) {
@@ -116,7 +119,7 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
         String type = ollirTypes.toOllirType(types.getExprType(node));
         String tmp = ollirTypes.nextTemp() + type;
 
-        computation.append(tmp + SPACE + ASSIGN + type + SPACE + "new(" + type + ")" + type  + END_STMT + "invokespecial("
+        computation.append(tmp + SPACE + ASSIGN + type + SPACE + "new(" + type.substring(1) + ")" + type  + END_STMT + "invokespecial("
                     + tmp + ", \"<init>\").V;\n");
 
         return new OllirExprResult(tmp, computation);
@@ -207,11 +210,16 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
     private OllirExprResult visitMethodCall(JmmNode node, Void unused) {
         OllirExprResult caller = visit(node.getChild(0));
         String methodName = node.get("name");
-        OllirExprResult args = visit(node.getChild(1));
+        List<OllirExprResult> args = new ArrayList<>();
+        for (int i = 1; i < node.getNumChildren();i++){
+            args.add(visit(node.getChild(i)));
+        }
 
         StringBuilder computation = new StringBuilder();
         computation.append(caller.getComputation());
-        computation.append(args.getComputation());
+        for (OllirExprResult arg : args){
+            computation.append(arg.getComputation());
+        }
         String temp = ollirTypes.nextTemp();
         String type = ollirTypes.toOllirType(types.getExprType(node));
 
@@ -220,14 +228,27 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
             computation.append(temp + type + SPACE + ASSIGN + type + SPACE);
         }
 
-        computation.append("invokestatic(" + caller.getCode() + ", \"" + methodName + "\"");
+        String call = caller.getCode();
+        boolean isStatic =  table.getImports().contains(call) || table.getClassName().contains(call);
 
-        if (args != null) {
-            computation.append(", ");
-            computation.append(String.join(", ", args.getCode()));
+        computation.append(isStatic ? "invokestatic(" : "invokevirtual(");
+
+        computation.append(caller.getCode() + ", \"" + methodName + "\"");
+
+        if (!args.isEmpty()) {
+            for (OllirExprResult arg : args){
+                computation.append(", " + arg.getCode());
+            }
         }
-
-        computation.append(").V" + END_STMT);
+        if (node.getParent().getKind().equals("AssignStatement")) {
+            computation.append(")" + type + END_STMT);
+        }
+        else if (table.getMethods().contains(methodName)) {
+            computation.append(")" + ollirTypes.toOllirType(table.getReturnType(methodName)) + END_STMT);
+        }
+        else {
+            computation.append(").V" + END_STMT);
+        }
 
         return new OllirExprResult(temp+type,computation);
     }
@@ -244,6 +265,11 @@ public class OllirExprGeneratorVisitor extends PreorderJmmVisitor<Void, OllirExp
             return new OllirExprResult(tmp,computation);
         }
         for (var local : table.getLocalVariables(node.getAncestor(METHOD_DECL).get().get("name"))) {
+            if (local.getName().equals(id)) {
+                return new OllirExprResult(id + ollirType);
+            }
+        }
+        for (var local : table.getParameters(node.getAncestor(METHOD_DECL).get().get("name"))) {
             if (local.getName().equals(id)) {
                 return new OllirExprResult(id + ollirType);
             }

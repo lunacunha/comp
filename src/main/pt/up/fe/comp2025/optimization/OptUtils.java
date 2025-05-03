@@ -38,7 +38,7 @@ public class OptUtils {
             case "ClassArrayType":
                 ret += ".array." + typeNode.get("name");
                 break;
-            case "IntArrayType":
+            case "IntArrayType","VarArgInt":
                 ret += ".array.i32";
                 break;
             case "BooleanLiteral","BooleanType":
