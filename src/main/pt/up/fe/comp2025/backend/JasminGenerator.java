@@ -1,14 +1,13 @@
 package pt.up.fe.comp2025.backend;
 
+import com.sun.jdi.VoidType;
 import org.specs.comp.ollir.ClassUnit;
 import org.specs.comp.ollir.LiteralElement;
 import org.specs.comp.ollir.Method;
 import org.specs.comp.ollir.Operand;
-import org.specs.comp.ollir.inst.AssignInstruction;
-import org.specs.comp.ollir.inst.BinaryOpInstruction;
-import org.specs.comp.ollir.inst.ReturnInstruction;
-import org.specs.comp.ollir.inst.SingleOpInstruction;
+import org.specs.comp.ollir.inst.*;
 import org.specs.comp.ollir.tree.TreeNode;
+import org.specs.comp.ollir.type.Type;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.specs.util.classmap.FunctionClassMap;
@@ -51,6 +50,7 @@ public class JasminGenerator {
         types = new JasminUtils(ollirResult);
 
         this.generators = new FunctionClassMap<>();
+
         generators.put(ClassUnit.class, this::generateClassUnit);
         generators.put(Method.class, this::generateMethod);
         generators.put(AssignInstruction.class, this::generateAssign);
@@ -59,13 +59,28 @@ public class JasminGenerator {
         generators.put(Operand.class, this::generateOperand);
         generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
         generators.put(ReturnInstruction.class, this::generateReturn);
+        generators.put(SingleOpCondInstruction.class, this::generateSingleOpCond);
+        generators.put(GotoInstruction.class, this::generateGoToInstruction);
+        generators.put(InvokeStaticInstruction.class, this::generateInvokeStatic);
+    }
+
+    private String generateInvokeStatic(InvokeStaticInstruction invokeStaticInstruction) {
+        return null;
+    }
+
+    private String generateGoToInstruction(GotoInstruction gotoInstruction) {
+        return null;
+    }
+
+    private String generateSingleOpCond(SingleOpCondInstruction singleOpCondInstruction) {
+        return null;
     }
 
     private String apply(TreeNode node) {
         var code = new StringBuilder();
 
         // Print the corresponding OLLIR code as a comment
-        //code.append("; ").append(node).append(NL);
+        code.append("; ").append(node).append(NL);
 
         code.append(generators.apply(node));
 
@@ -151,7 +166,16 @@ public class JasminGenerator {
 
         // Add limits
         code.append(TAB).append(".limit stack 99").append(NL);
-        code.append(TAB).append(".limit locals 99").append(NL);
+        int maxlocals = 0;
+        for (var variable : method.getVarTable().keySet()) {
+            var descriptor = method.getVarTable().get(variable);
+            if (descriptor != null) {
+                if (descriptor.getVirtualReg() + 1 > maxlocals) {
+                    maxlocals = descriptor.getVirtualReg() + 1;
+                }
+            }
+        }
+        code.append(TAB).append(".limit locals ").append(maxlocals).append(NL);
 
         for (var inst : method.getInstructions()) {
             var instCode = StringLines.getLines(apply(inst)).stream()
@@ -216,26 +240,33 @@ public class JasminGenerator {
         code.append(apply(binaryOp.getLeftOperand()));
         code.append(apply(binaryOp.getRightOperand()));
 
-        // TODO: Hardcoded for int type, needs to be expanded
-        var typePrefix = "i";
 
         // apply operation
-        var op = switch (binaryOp.getOperation().getOpType()) {
-            case ADD -> "add";
-            case MUL -> "mul";
+        switch (binaryOp.getOperation().getOpType()) {
+            case ADD -> code.append("iadd" + NL);
+            case MUL -> code.append("imul" + NL);
+            case LTH,GTE -> code.append(generateLesserOp(binaryOp));
             default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
         };
-
-        code.append(typePrefix + op).append(NL);
 
         return code.toString();
     }
 
+    private String generateLesserOp(BinaryOpInstruction binaryOp) {
+        return null;
+    }
+
     private String generateReturn(ReturnInstruction returnInst) {
         var code = new StringBuilder();
-
-        // TODO: Hardcoded for int type, needs to be expanded
-        code.append("ireturn").append(NL);
+        code.append("Debug return type: " + returnInst.getReturnType().toString());
+        switch (returnInst.getReturnType().toString()) {
+            case "VOID":
+                code.append("return").append(NL);
+            case "INT32":
+                code.append("ireturn").append(NL);
+            default:
+                code.append("areturn").append(NL);
+        }
 
         return code.toString();
     }

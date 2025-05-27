@@ -24,4 +24,6 @@ public class JasminUtils {
                 accessModifier.name().toLowerCase() + " " :
                 "";
     }
+
+    public HashMap<String, String> classHashMap;
 }
