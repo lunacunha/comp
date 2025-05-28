@@ -25,5 +25,31 @@ public class JasminUtils {
                 "";
     }
 
-    public HashMap<String, String> classHashMap;
+    public String toJasminType(Type type) {
+        if (type instanceof BuiltinType builtinType) {
+            switch (builtinType.getKind()) {
+                case INT32:
+                    return "I";
+                case BOOLEAN:
+                    return "Z";
+                case STRING:
+                    return "Ljava/lang/String;";
+                case VOID:
+                    return "V";
+                default:
+                    throw new NotImplementedException();
+            }
+        }  else if (type instanceof ClassType classType) {
+            return "L" + classType.getName().replace('.', '/') + ";";
+        } else if (type instanceof ArrayType arrayType) {
+            String res = "";
+            for (int i = 0; i < arrayType.getNumDimensions(); i++) {
+                res += "[";
+            }
+            res += toJasminType(arrayType.getElementType());
+            return res;
+        } else {
+            throw new NotImplementedException();
+        }
+    }
 }

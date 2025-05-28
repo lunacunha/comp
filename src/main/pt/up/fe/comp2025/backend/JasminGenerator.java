@@ -59,14 +59,24 @@ public class JasminGenerator {
         generators.put(SingleOpCondInstruction.class, this::generateSingleOpCond);
         generators.put(GotoInstruction.class, this::generateGoToInstruction);
         generators.put(InvokeStaticInstruction.class, this::generateInvokeStatic);
+        generators.put(InvokeSpecialInstruction.class, this::generateInvokeSpecial);
+        generators.put(NewInstruction.class, this::generateNew);
+    }
+
+    private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecialInstruction) {
+        return invokeSpecialInstruction.toString();
+    }
+
+    private String generateNew(NewInstruction newInstruction) {
+        return newInstruction.toString();
     }
 
     private String generateInvokeStatic(InvokeStaticInstruction invokeStaticInstruction) {
-        return null;
+
+        return invokeStaticInstruction.getInvocationKind();
     }
 
     private String generateGoToInstruction(GotoInstruction gotoInstruction) {
-        //TODO : LABELS
         return "goto " + gotoInstruction.getLabel() + NL;
     }
 
@@ -86,7 +96,7 @@ public class JasminGenerator {
         var code = new StringBuilder();
 
         // Print the corresponding OLLIR code as a comment
-        code.append("; ").append(node).append(NL);
+        //code.append("; ").append(node).append(NL);
 
         code.append(generators.apply(node));
 
@@ -160,8 +170,25 @@ public class JasminGenerator {
         var methodName = method.getMethodName();
 
         // TODO: Hardcoded param types and return type, needs to be expanded
-        var params = "I";
-        var returnType = "I";
+        var params = "";
+        for (var param : method.getParams()) {
+            params += param.getType();
+
+        }
+        var returnType = "";
+        var returninstr = (ReturnInstruction) method.getInstr(method.getInstructions().size()-1);
+        switch (returninstr.getReturnType().toString()) {
+            case "VOID":
+                returnType = "V";
+                break;
+            case "INT32":
+                returnType = "I";
+                break;
+            default:
+                var string = returninstr.getReturnType().toString();
+                returnType = "L" + string.substring(string.indexOf('(')+1,string.indexOf(')')) + ";";
+                break;
+        }
 
         code.append("\n.method ").append(modifier)
                 .append(methodName)
@@ -184,7 +211,7 @@ public class JasminGenerator {
             var instCode = StringLines.getLines(apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
             for (var lbl : method.getLabels(inst)) {
-                code.append(TAB + lbl + NL);
+                code.append(TAB + lbl + ":" + NL);
             }
             code.append(instCode);
         }
@@ -242,7 +269,7 @@ public class JasminGenerator {
         var reg = currentMethod.getVarTable().get(operand.getName());
 
         // TODO: Hardcoded for int type, needs to be expanded
-        return "iload " + reg.getVirtualReg() + NL;
+        return "iload_" + reg.getVirtualReg() + NL;
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
