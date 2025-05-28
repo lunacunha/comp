@@ -82,35 +82,6 @@ public class JasminGenerator {
         return code.toString();
     }
 
-    private String pushToStack(Element instruction) {
-        var code = new StringBuilder();
-        if (instruction instanceof LiteralElement literal) {
-            String value = literal.getLiteral(); // "0" or "1"
-
-            if (Integer.valueOf(value) < 6) {
-                code.append("const_").append(value).append("\n");
-            } else {
-                code.append("ldc ").append(value).append("\n"); // fallback
-            }
-        }
-
-        else if (instruction instanceof Operand operand) {
-            String varName = operand.getName();
-            int varIndex = 0;
-
-            for (var method : ollirResult.getOllirClass().getMethods()) {
-                var varTable = method.getVarTable();
-                if (varTable.containsKey(varName)) {
-                    varIndex = varTable.get(varName).getVirtualReg();
-                    break;
-                }
-            }
-
-            code.append("iload_").append(varIndex).append("\n");
-        }
-        return code.toString();
-    }
-
     private String apply(TreeNode node) {
         var code = new StringBuilder();
 
@@ -212,7 +183,9 @@ public class JasminGenerator {
         for (var inst : method.getInstructions()) {
             var instCode = StringLines.getLines(apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
-
+            if (method.getLabels(inst) != null) {
+                code.append(TAB).append(".label ").append(instCode).append(NL);
+            }
             code.append(instCode);
         }
 
@@ -254,8 +227,12 @@ public class JasminGenerator {
 
     private String generateLiteral(LiteralElement literal) {
         //TODO : ONLY SUPPORTS INTS
-        if (Integer.valueOf(literal.getLiteral()) < 7) {
+        if (Integer.valueOf(literal.getLiteral()) == -1) return "iconst_m1" + NL;
+        if (Integer.valueOf(literal.getLiteral()) < 6 && Integer.valueOf(literal.getLiteral()) >= 0) {
             return "iconst_" + literal.getLiteral() + NL;
+        }
+        else if (Integer.valueOf(literal.getLiteral()) < 128 && Integer.valueOf(literal.getLiteral()) >= -128) {
+            return "bipush " + literal.getLiteral() + NL;
         }
         return "ldc " + literal.getLiteral() + NL;
     }
