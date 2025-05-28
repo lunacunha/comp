@@ -1,10 +1,7 @@
 package pt.up.fe.comp2025.backend;
 
 import com.sun.jdi.VoidType;
-import org.specs.comp.ollir.ClassUnit;
-import org.specs.comp.ollir.LiteralElement;
-import org.specs.comp.ollir.Method;
-import org.specs.comp.ollir.Operand;
+import org.specs.comp.ollir.*;
 import org.specs.comp.ollir.inst.*;
 import org.specs.comp.ollir.tree.TreeNode;
 import org.specs.comp.ollir.type.Type;
@@ -69,11 +66,49 @@ public class JasminGenerator {
     }
 
     private String generateGoToInstruction(GotoInstruction gotoInstruction) {
-        return null;
+        //TODO : LABELS
+        return "goto " + gotoInstruction.getLabel() + NL;
     }
 
     private String generateSingleOpCond(SingleOpCondInstruction singleOpCondInstruction) {
-        return null;
+        var code = new StringBuilder();
+        var condition = singleOpCondInstruction.getCondition().getSingleOperand();
+        String label = singleOpCondInstruction.getLabel();
+
+        code.append(apply(condition));
+
+        code.append("ifne ").append(label).append("\n");
+
+        return code.toString();
+    }
+
+    private String pushToStack(Element instruction) {
+        var code = new StringBuilder();
+        if (instruction instanceof LiteralElement literal) {
+            String value = literal.getLiteral(); // "0" or "1"
+
+            if (Integer.valueOf(value) < 6) {
+                code.append("const_").append(value).append("\n");
+            } else {
+                code.append("ldc ").append(value).append("\n"); // fallback
+            }
+        }
+
+        else if (instruction instanceof Operand operand) {
+            String varName = operand.getName();
+            int varIndex = 0;
+
+            for (var method : ollirResult.getOllirClass().getMethods()) {
+                var varTable = method.getVarTable();
+                if (varTable.containsKey(varName)) {
+                    varIndex = varTable.get(varName).getVirtualReg();
+                    break;
+                }
+            }
+
+            code.append("iload_").append(varIndex).append("\n");
+        }
+        return code.toString();
     }
 
     private String apply(TreeNode node) {
@@ -86,7 +121,6 @@ public class JasminGenerator {
 
         return code.toString();
     }
-
 
     public List<Report> getReports() {
         return reports;
@@ -101,7 +135,6 @@ public class JasminGenerator {
 
         return code;
     }
-
 
     private String generateClassUnit(ClassUnit classUnit) {
 
@@ -142,7 +175,6 @@ public class JasminGenerator {
 
         return code.toString();
     }
-
 
     private String generateMethod(Method method) {
         //System.out.println("STARTING METHOD " + method.getMethodName());
@@ -210,9 +242,8 @@ public class JasminGenerator {
         // get register
         var reg = currentMethod.getVarTable().get(operand.getName());
 
-
         // TODO: Hardcoded for int type, needs to be expanded
-        code.append("istore ").append(reg.getVirtualReg()).append(NL);
+        code.append("istore_").append(reg.getVirtualReg()).append(NL);
 
         return code.toString();
     }
@@ -222,6 +253,10 @@ public class JasminGenerator {
     }
 
     private String generateLiteral(LiteralElement literal) {
+        //TODO : ONLY SUPPORTS INTS
+        if (Integer.valueOf(literal.getLiteral()) < 7) {
+            return "iconst_" + literal.getLiteral() + NL;
+        }
         return "ldc " + literal.getLiteral() + NL;
     }
 
@@ -258,14 +293,16 @@ public class JasminGenerator {
 
     private String generateReturn(ReturnInstruction returnInst) {
         var code = new StringBuilder();
-        code.append("Debug return type: " + returnInst.getReturnType().toString());
         switch (returnInst.getReturnType().toString()) {
             case "VOID":
                 code.append("return").append(NL);
+                break;
             case "INT32":
                 code.append("ireturn").append(NL);
+                break;
             default:
                 code.append("areturn").append(NL);
+                break;
         }
 
         return code.toString();
