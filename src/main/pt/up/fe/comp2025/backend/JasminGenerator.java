@@ -183,8 +183,8 @@ public class JasminGenerator {
         for (var inst : method.getInstructions()) {
             var instCode = StringLines.getLines(apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
-            if (method.getLabels(inst) != null) {
-                code.append(TAB).append(".label ").append(instCode).append(NL);
+            for (var lbl : method.getLabels(inst)) {
+                code.append(TAB + lbl + NL);
             }
             code.append(instCode);
         }
