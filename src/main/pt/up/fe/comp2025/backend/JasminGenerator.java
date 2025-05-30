@@ -476,6 +476,11 @@ public class JasminGenerator {
 
     private String generateReturn(ReturnInstruction returnInst) {
         var code = new StringBuilder();
+
+        if (returnInst.hasReturnValue()) {
+            code.append(apply(returnInst.getOperand().get()));
+        }
+
         switch (returnInst.getReturnType().toString()) {
             case "VOID":
                 code.append("return").append(NL);
