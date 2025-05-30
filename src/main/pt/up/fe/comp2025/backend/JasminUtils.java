@@ -25,6 +25,21 @@ public class JasminUtils {
                 "";
     }
 
+    public String getImportPath(String className, Method method) {
+        if (className.equals("this")) {
+            return method.getOllirClass().getClassName();
+        }
+        for (var imp : method.getOllirClass().getImports()) {
+            if (imp.endsWith("."+className)) {
+                return imp.replace('.', '/');
+            }
+            else if (imp.equals(className)) {
+                return imp;
+            }
+        }
+        throw new NotImplementedException();
+    }
+
     public String toJasminType(Type type) {
         if (type instanceof BuiltinType builtinType) {
             switch (builtinType.getKind()) {

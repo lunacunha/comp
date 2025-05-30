@@ -60,20 +60,60 @@ public class JasminGenerator {
         generators.put(GotoInstruction.class, this::generateGoToInstruction);
         generators.put(InvokeStaticInstruction.class, this::generateInvokeStatic);
         generators.put(InvokeSpecialInstruction.class, this::generateInvokeSpecial);
+        generators.put(InvokeVirtualInstruction.class, this::generateInvokeVirtual);
         generators.put(NewInstruction.class, this::generateNew);
+        generators.put(PutFieldInstruction.class, this::generatePutField);
+        generators.put(GetFieldInstruction.class, this::generateGetField);
+    }
+
+    private String generateGetField(GetFieldInstruction getFieldInstruction) {
+        //TODO
+        return "; " + getFieldInstruction.toString() + NL;
+    }
+
+    private String generatePutField(PutFieldInstruction putFieldInstruction) {
+        //TODO
+        return "; " + putFieldInstruction.toString() + NL;
+    }
+
+    private String generateInvokeVirtual(InvokeVirtualInstruction invokeVirtualInstruction) {
+        var code = new StringBuilder();
+        var params = "";
+        for (int i = 0; i < invokeVirtualInstruction.getArguments().size(); i++) {
+            var argument = invokeVirtualInstruction.getArguments().get(i);
+            params += types.toJasminType(argument.getType());
+            code.append(apply(argument));
+        }
+        var className = ((Operand) invokeVirtualInstruction.getCaller()).getName();
+        code.append("invokevirtual " + types.getImportPath(className,currentMethod) + "/" +
+                ((LiteralElement) invokeVirtualInstruction.getMethodName()).getLiteral()
+                + "(" + params + ")" + types.toJasminType(invokeVirtualInstruction.getReturnType()) + NL);
+        return code.toString();
     }
 
     private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecialInstruction) {
-        return invokeSpecialInstruction.toString();
+        //TODO
+        return ";" + invokeSpecialInstruction.toString() + NL;
     }
 
     private String generateNew(NewInstruction newInstruction) {
-        return newInstruction.toString();
+        //TODO
+        return ";" + newInstruction.toString() + NL;
     }
 
     private String generateInvokeStatic(InvokeStaticInstruction invokeStaticInstruction) {
-
-        return invokeStaticInstruction.getInvocationKind();
+        var code = new StringBuilder();
+        var params = "";
+        for (int i = 0; i < invokeStaticInstruction.getArguments().size(); i++) {
+            var argument = invokeStaticInstruction.getArguments().get(i);
+            params += types.toJasminType(argument.getType());
+            code.append(apply(argument));
+        }
+        var className = ((Operand) invokeStaticInstruction.getCaller()).getName();
+        code.append("invokestatic " + types.getImportPath(className,currentMethod) + "/" +
+                ((LiteralElement) invokeStaticInstruction.getMethodName()).getLiteral()
+                + "(" + params + ")" + types.toJasminType(invokeStaticInstruction.getReturnType()) + NL);
+        return code.toString();
     }
 
     private String generateGoToInstruction(GotoInstruction gotoInstruction) {
@@ -166,31 +206,22 @@ public class JasminGenerator {
 
         // calculate modifier
         var modifier = types.getModifier(method.getMethodAccessModifier());
+        var isStatic = "";
+        if (method.isStaticMethod()) {
+            isStatic = "static ";
+        }
 
         var methodName = method.getMethodName();
 
-        // TODO: Hardcoded param types and return type, needs to be expanded
         var params = "";
-        for (var param : method.getParams()) {
-            params += param.getType();
+        for (int i = 0; i < method.getParams().size(); i++) {
+            var param = method.getParam(i);
+            params += types.toJasminType(param.getType());
 
         }
-        var returnType = "";
-        var returninstr = (ReturnInstruction) method.getInstr(method.getInstructions().size()-1);
-        switch (returninstr.getReturnType().toString()) {
-            case "VOID":
-                returnType = "V";
-                break;
-            case "INT32":
-                returnType = "I";
-                break;
-            default:
-                var string = returninstr.getReturnType().toString();
-                returnType = "L" + string.substring(string.indexOf('(')+1,string.indexOf(')')) + ";";
-                break;
-        }
+        var returnType = types.toJasminType(((ReturnInstruction) method.getInstr(method.getInstructions().size() - 1)).getReturnType());
 
-        code.append("\n.method ").append(modifier)
+        code.append("\n.method ").append(modifier).append(isStatic)
                 .append(methodName)
                 .append("(" + params + ")" + returnType).append(NL);
 
@@ -240,10 +271,11 @@ public class JasminGenerator {
         var operand = (Operand) lhs;
 
         // get register
-        var reg = currentMethod.getVarTable().get(operand.getName());
+        var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
         // TODO: Hardcoded for int type, needs to be expanded
-        code.append("istore_").append(reg.getVirtualReg()).append(NL);
+        if (reg <= 3) code.append("istore_").append(reg).append(NL);
+        else code.append("istore ").append(reg).append(NL);
 
         return code.toString();
     }
@@ -253,7 +285,6 @@ public class JasminGenerator {
     }
 
     private String generateLiteral(LiteralElement literal) {
-        //TODO : ONLY SUPPORTS INTS
         if (Integer.valueOf(literal.getLiteral()) == -1) return "iconst_m1" + NL;
         if (Integer.valueOf(literal.getLiteral()) < 6 && Integer.valueOf(literal.getLiteral()) >= 0) {
             return "iconst_" + literal.getLiteral() + NL;
@@ -261,15 +292,19 @@ public class JasminGenerator {
         else if (Integer.valueOf(literal.getLiteral()) < 128 && Integer.valueOf(literal.getLiteral()) >= -128) {
             return "bipush " + literal.getLiteral() + NL;
         }
+        else if (Integer.valueOf(literal.getLiteral()) < 32768 && Integer.valueOf(literal.getLiteral()) >= -32768) {
+            return "sipush " + literal.getLiteral() + NL;
+        }
         return "ldc " + literal.getLiteral() + NL;
     }
 
     private String generateOperand(Operand operand) {
         // get register
-        var reg = currentMethod.getVarTable().get(operand.getName());
+        var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
         // TODO: Hardcoded for int type, needs to be expanded
-        return "iload_" + reg.getVirtualReg() + NL;
+        if (reg <= 3) return "iload_" + reg + NL;
+        return "iload " + reg + NL;
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
@@ -284,7 +319,7 @@ public class JasminGenerator {
         switch (binaryOp.getOperation().getOpType()) {
             case ADD -> code.append("iadd" + NL);
             case MUL -> code.append("imul" + NL);
-            case LTH,GTE -> code.append(generateLesserOp(binaryOp));
+            case LTH -> code.append(generateLesserOp(binaryOp));
             default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
         };
 
@@ -292,7 +327,8 @@ public class JasminGenerator {
     }
 
     private String generateLesserOp(BinaryOpInstruction binaryOp) {
-        return null;
+        //TODO
+        return "; " + binaryOp.toString() + NL;
     }
 
     private String generateReturn(ReturnInstruction returnInst) {
