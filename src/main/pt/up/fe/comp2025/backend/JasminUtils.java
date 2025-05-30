@@ -25,19 +25,24 @@ public class JasminUtils {
                 "";
     }
 
-    public String getImportPath(String className, Method method) {
-        if (className.equals("this")) {
+    public String getImportPath(String name, Method method, String className) {
+        if (name.equals("this")) {
             return method.getOllirClass().getClassName();
         }
         for (var imp : method.getOllirClass().getImports()) {
-            if (imp.endsWith("."+className)) {
+            if (imp.endsWith("."+name)) {
                 return imp.replace('.', '/');
             }
-            else if (imp.equals(className)) {
+            else if (imp.equals(name)) {
                 return imp;
             }
         }
-        throw new NotImplementedException();
+        if (className.startsWith("OBJECTREF(")) {
+            int startIndex = className.indexOf('(') + 1;
+            int endIndex = className.indexOf(')');
+            return className.substring(startIndex, endIndex);
+        }
+        throw new NotImplementedException(className);
     }
 
     public String toJasminType(Type type) {

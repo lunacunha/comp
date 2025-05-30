@@ -55,15 +55,33 @@ public class JasminGenerator {
         generators.put(LiteralElement.class, this::generateLiteral);
         generators.put(Operand.class, this::generateOperand);
         generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
+        generators.put(UnaryOpInstruction.class, this::generateUnaryOp);
         generators.put(ReturnInstruction.class, this::generateReturn);
         generators.put(SingleOpCondInstruction.class, this::generateSingleOpCond);
+        generators.put(OpCondInstruction.class, this::generateOpCond);
         generators.put(GotoInstruction.class, this::generateGoToInstruction);
         generators.put(InvokeStaticInstruction.class, this::generateInvokeStatic);
         generators.put(InvokeSpecialInstruction.class, this::generateInvokeSpecial);
         generators.put(InvokeVirtualInstruction.class, this::generateInvokeVirtual);
         generators.put(NewInstruction.class, this::generateNew);
+        generators.put(ArrayLengthInstruction.class, this::generateArrayLength);
         generators.put(PutFieldInstruction.class, this::generatePutField);
         generators.put(GetFieldInstruction.class, this::generateGetField);
+    }
+
+    private String generateArrayLength(ArrayLengthInstruction arrayLengthInstruction) {
+        //TODO
+        return "; " + arrayLengthInstruction.toString() + NL;
+    }
+
+    private String generateUnaryOp(UnaryOpInstruction unaryOpInstruction) {
+        //TODO
+        return "; " + unaryOpInstruction.toString() + NL;
+    }
+
+    private String generateOpCond(OpCondInstruction opCondInstruction) {
+        //TODO
+        return "; " + opCondInstruction.toString() + NL;
     }
 
     private String generateGetField(GetFieldInstruction getFieldInstruction) {
@@ -84,8 +102,9 @@ public class JasminGenerator {
             params += types.toJasminType(argument.getType());
             code.append(apply(argument));
         }
-        var className = ((Operand) invokeVirtualInstruction.getCaller()).getName();
-        code.append("invokevirtual " + types.getImportPath(className,currentMethod) + "/" +
+        var name = ((Operand) invokeVirtualInstruction.getCaller()).getName();
+        var className =  invokeVirtualInstruction.getCaller().getType().toString();
+        code.append("invokevirtual " + types.getImportPath(name,currentMethod,className) + "/" +
                 ((LiteralElement) invokeVirtualInstruction.getMethodName()).getLiteral()
                 + "(" + params + ")" + types.toJasminType(invokeVirtualInstruction.getReturnType()) + NL);
         return code.toString();
@@ -109,8 +128,9 @@ public class JasminGenerator {
             params += types.toJasminType(argument.getType());
             code.append(apply(argument));
         }
-        var className = ((Operand) invokeStaticInstruction.getCaller()).getName();
-        code.append("invokestatic " + types.getImportPath(className,currentMethod) + "/" +
+        var name = ((Operand) invokeStaticInstruction.getCaller()).getName();
+        var className = invokeStaticInstruction.getCaller().getType().toString();
+        code.append("invokestatic " + types.getImportPath(name,currentMethod, className) + "/" +
                 ((LiteralElement) invokeStaticInstruction.getMethodName()).getLiteral()
                 + "(" + params + ")" + types.toJasminType(invokeStaticInstruction.getReturnType()) + NL);
         return code.toString();
@@ -319,6 +339,8 @@ public class JasminGenerator {
         switch (binaryOp.getOperation().getOpType()) {
             case ADD -> code.append("iadd" + NL);
             case MUL -> code.append("imul" + NL);
+            case SUB -> code.append("isub" + NL);
+            case DIV -> code.append("idiv" + NL);
             case LTH -> code.append(generateLesserOp(binaryOp));
             default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
         };
