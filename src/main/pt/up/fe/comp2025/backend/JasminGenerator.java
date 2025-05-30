@@ -80,10 +80,30 @@ public class JasminGenerator {
     }
 
     private String generateOpCond(OpCondInstruction opCondInstruction) {
-        //TODO
-        return "; " + opCondInstruction.toString() + NL;
-    }
+        var code = new StringBuilder();
+        var condition = opCondInstruction.getCondition();
+        String label = opCondInstruction.getLabel();
 
+        var operands = condition.getOperands();
+        if (operands.size() != 2) {
+            throw new RuntimeException("Expected 2 operands for comparison, got " + operands.size());
+        }
+        code.append(apply(operands.get(0)));
+        code.append(apply(operands.get(1)));
+
+        // comparison instruction based on operation type
+        switch (condition.getOperation().getOpType()) {
+            case LTH -> code.append("if_icmplt ").append(label).append(NL);
+            case GTH -> code.append("if_icmpgt ").append(label).append(NL);
+            case LTE -> code.append("if_icmple ").append(label).append(NL);
+            case GTE -> code.append("if_icmpge ").append(label).append(NL);
+            case EQ -> code.append("if_icmpeq ").append(label).append(NL);
+            case NEQ -> code.append("if_icmpne ").append(label).append(NL);
+            default -> throw new NotImplementedException(condition.getOperation().getOpType());
+        }
+
+        return code.toString();
+    }
     private String generateGetField(GetFieldInstruction getFieldInstruction) {
         //TODO
         return "; " + getFieldInstruction.toString() + NL;
