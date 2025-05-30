@@ -70,8 +70,13 @@ public class JasminGenerator {
     }
 
     private String generateArrayLength(ArrayLengthInstruction arrayLengthInstruction) {
-        //TODO
-        return "; " + arrayLengthInstruction.toString() + NL;
+        var code = new StringBuilder();
+
+        code.append(apply(arrayLengthInstruction.getCaller()));
+
+        code.append("arraylength").append(NL);
+
+        return code.toString();
     }
 
     private String generateUnaryOp(UnaryOpInstruction unaryOpInstruction) {
@@ -136,8 +141,33 @@ public class JasminGenerator {
     }
 
     private String generateNew(NewInstruction newInstruction) {
-        //TODO
-        return ";" + newInstruction.toString() + NL;
+        var code = new StringBuilder();
+
+        var arguments = newInstruction.getArguments();
+
+        if (arguments != null && arguments.size() > 0) {
+            var sizeOperand = arguments.get(0);
+            code.append(apply(sizeOperand));
+
+            var returnType = newInstruction.getReturnType().toString();
+
+            if (returnType.contains("INT32") || returnType.contains("i32")) {
+                code.append("newarray int").append(NL);
+            } else if (returnType.contains("BOOLEAN") || returnType.contains("bool")) {
+                code.append("newarray boolean").append(NL);
+            } else {
+                String elementType = returnType.replace("array.", "").replace("[]", "");
+                code.append("anewarray ").append(elementType).append(NL);
+            }
+        } else {
+            var caller = newInstruction.getCaller();
+            var className = caller.getType().toString();
+
+            code.append("new ").append(className).append(NL);
+            code.append("dup").append(NL); // Duplicate reference for constructor call
+        }
+
+        return code.toString();
     }
 
     private String generateInvokeStatic(InvokeStaticInstruction invokeStaticInstruction) {
@@ -298,10 +328,8 @@ public class JasminGenerator {
     private String generateAssign(AssignInstruction assign) {
         var code = new StringBuilder();
 
-        // generate code for loading what's on the right
         code.append(apply(assign.getRhs()));
 
-        // store value in the stack in destination
         var lhs = assign.getDest();
 
         if (!(lhs instanceof Operand)) {
@@ -310,12 +338,19 @@ public class JasminGenerator {
 
         var operand = (Operand) lhs;
 
-        // get register
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
-        // TODO: Hardcoded for int type, needs to be expanded
-        if (reg <= 3) code.append("istore_").append(reg).append(NL);
-        else code.append("istore ").append(reg).append(NL);
+        var type = operand.getType().toString();
+
+        if (type.contains("[]") || type.contains("array") || type.contains("ARRAY")) {
+            // Reference -> astore
+            if (reg <= 3) code.append("astore_").append(reg).append(NL);
+            else code.append("astore ").append(reg).append(NL);
+        } else {
+            // int and bool -> istore
+            if (reg <= 3) code.append("istore_").append(reg).append(NL);
+            else code.append("istore ").append(reg).append(NL);
+        }
 
         return code.toString();
     }
@@ -339,12 +374,20 @@ public class JasminGenerator {
     }
 
     private String generateOperand(Operand operand) {
-        // get register
+
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
-        // TODO: Hardcoded for int type, needs to be expanded
-        if (reg <= 3) return "iload_" + reg + NL;
-        return "iload " + reg + NL;
+        var type = operand.getType().toString();
+
+        if (type.contains("[]") || type.contains("array") || type.contains("ARRAY")) {
+            // reference -> aload
+            if (reg <= 3) return "aload_" + reg + NL;
+            return "aload " + reg + NL;
+        } else {
+            // int and bool -> iload
+            if (reg <= 3) return "iload_" + reg + NL;
+            return "iload " + reg + NL;
+        }
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
