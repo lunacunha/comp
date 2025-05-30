@@ -1,10 +1,8 @@
 package pt.up.fe.comp2025.backend;
 
-import com.sun.jdi.VoidType;
 import org.specs.comp.ollir.*;
 import org.specs.comp.ollir.inst.*;
 import org.specs.comp.ollir.tree.TreeNode;
-import org.specs.comp.ollir.type.Type;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.specs.util.classmap.FunctionClassMap;
@@ -36,6 +34,8 @@ public class JasminGenerator {
     private final JasminUtils types;
 
     private final FunctionClassMap<TreeNode, String> generators;
+
+    private int counter = 0;
 
     public JasminGenerator(OllirResult ollirResult) {
         this.ollirResult = ollirResult;
@@ -85,28 +85,43 @@ public class JasminGenerator {
     }
 
     private String generateOpCond(OpCondInstruction opCondInstruction) {
-        var code = new StringBuilder();
-        var condition = opCondInstruction.getCondition();
-        String label = opCondInstruction.getLabel();
+        var code      = new StringBuilder();
+        var cond      = opCondInstruction.getCondition();
+        var operands  = cond.getOperands();
+        String label  = opCondInstruction.getLabel();
 
-        var operands = condition.getOperands();
         if (operands.size() != 2) {
             throw new RuntimeException("Expected 2 operands for comparison, got " + operands.size());
         }
-        code.append(apply(operands.get(0)));
-        code.append(apply(operands.get(1)));
+        var left  = operands.get(0);
+        var right = operands.get(1);
+        var op    = cond.getOperation().getOpType();
 
-        // comparison instruction based on operation type
-        switch (condition.getOperation().getOpType()) {
-            case LTH -> code.append("if_icmplt ").append(label).append(NL);
-            case GTH -> code.append("if_icmpgt ").append(label).append(NL);
-            case LTE -> code.append("if_icmple ").append(label).append(NL);
-            case GTE -> code.append("if_icmpge ").append(label).append(NL);
-            case EQ -> code.append("if_icmpeq ").append(label).append(NL);
-            case NEQ -> code.append("if_icmpne ").append(label).append(NL);
-            default -> throw new NotImplementedException(condition.getOperation().getOpType());
+        if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
+            code.append(apply(left));
+            switch (op) {
+                case LTH  -> code.append("iflt  ").append(label).append(NL);
+                case GTE  -> code.append("ifge  ").append(label).append(NL);
+                case GTH  -> code.append("ifgt  ").append(label).append(NL);
+                case LTE  -> code.append("ifle  ").append(label).append(NL);
+                case EQ   -> code.append("ifeq  ").append(label).append(NL);
+                case NEQ  -> code.append("ifne  ").append(label).append(NL);
+                default   -> throw new NotImplementedException(op);
+            }
+            return code.toString();
         }
 
+        code.append(apply(left));
+        code.append(apply(right));
+        switch (op) {
+            case LTH  -> code.append("if_icmplt ").append(label).append(NL);
+            case GTH  -> code.append("if_icmpgt ").append(label).append(NL);
+            case LTE  -> code.append("if_icmple ").append(label).append(NL);
+            case GTE  -> code.append("if_icmpge ").append(label).append(NL);
+            case EQ   -> code.append("if_icmpeq ").append(label).append(NL);
+            case NEQ  -> code.append("if_icmpne ").append(label).append(NL);
+            default   -> throw new NotImplementedException(op);
+        }
         return code.toString();
     }
     private String generateGetField(GetFieldInstruction getFieldInstruction) {
@@ -391,30 +406,73 @@ public class JasminGenerator {
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
-        var code = new StringBuilder();
-
-        // load values on the left and on the right
-        code.append(apply(binaryOp.getLeftOperand()));
-        code.append(apply(binaryOp.getRightOperand()));
-
-
-        // apply operation
         switch (binaryOp.getOperation().getOpType()) {
-            case ADD -> code.append("iadd" + NL);
-            case MUL -> code.append("imul" + NL);
-            case SUB -> code.append("isub" + NL);
-            case DIV -> code.append("idiv" + NL);
-            case LTH -> code.append(generateLesserOp(binaryOp));
-            default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
-        };
+            case ADD  -> {
+                var code = new StringBuilder();
+                code.append(apply(binaryOp.getLeftOperand()));
+                code.append(apply(binaryOp.getRightOperand()));
+                code.append("iadd").append(NL);
+                return code.toString();
+            }
+            case MUL  -> {
+                var code = new StringBuilder();
+                code.append(apply(binaryOp.getLeftOperand()));
+                code.append(apply(binaryOp.getRightOperand()));
+                code.append("imul").append(NL);
+                return code.toString();
+            }
+            case SUB  -> {
+                var code = new StringBuilder();
+                code.append(apply(binaryOp.getLeftOperand()));
+                code.append(apply(binaryOp.getRightOperand()));
+                code.append("isub").append(NL);
+                return code.toString();
+            }
+            case DIV  -> {
+                var code = new StringBuilder();
+                code.append(apply(binaryOp.getLeftOperand()));
+                code.append(apply(binaryOp.getRightOperand()));
+                code.append("idiv").append(NL);
+                return code.toString();
+            }
+            case LTH  -> {
+                return generateLesserOp(binaryOp);
+            }
+            default   -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
+        }
+    }
+
+
+    private String generateLesserOp(BinaryOpInstruction binOp) {
+        var code     = new StringBuilder();
+        var left     = binOp.getLeftOperand();
+        var right    = binOp.getRightOperand();
+
+        int  idT     = counter++;
+        int  idE     = counter++;
+        String lblT  = "cmpTrue" + idT;
+        String lblE  = "cmpEnd"  + idE;
+
+        code.append(apply(left));
+        code.append(apply(right));
+
+        if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
+            code.append("iflt  ").append(lblT).append(NL);
+        } else {
+            code.append("if_icmplt ").append(lblT).append(NL);
+        }
+
+        code.append("iconst_0").append(NL);
+        code.append("goto ").append(lblE).append(NL);
+
+        code.append(lblT).append(":").append(NL);
+        code.append("iconst_1").append(NL);
+
+        code.append(lblE).append(":").append(NL);
 
         return code.toString();
     }
 
-    private String generateLesserOp(BinaryOpInstruction binaryOp) {
-        //TODO
-        return "; " + binaryOp.toString() + NL;
-    }
 
     private String generateReturn(ReturnInstruction returnInst) {
         var code = new StringBuilder();
