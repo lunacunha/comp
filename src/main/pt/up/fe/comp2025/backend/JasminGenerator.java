@@ -343,6 +343,50 @@ public class JasminGenerator {
     private String generateAssign(AssignInstruction assign) {
         var code = new StringBuilder();
 
+        // checks if it is iinc pattern
+        if (assign.getRhs() instanceof SingleOpInstruction singleOp &&
+                singleOp.getSingleOperand() instanceof Operand tempVar) {
+
+            var instructions = currentMethod.getInstructions();
+            for (int i = 0; i < instructions.size(); i++) {
+                if (instructions.get(i) == assign && i > 0) {
+                    var prevInst = instructions.get(i - 1);
+                    if (prevInst instanceof AssignInstruction prevAssign &&
+                            prevAssign.getDest() instanceof Operand prevDest &&
+                            prevDest.getName().equals(tempVar.getName()) &&
+                            prevAssign.getRhs() instanceof BinaryOpInstruction binOp &&
+                            binOp.getOperation().getOpType() == OperationType.ADD) {
+
+                        var leftOperand = binOp.getLeftOperand();
+                        var rightOperand = binOp.getRightOperand();
+                        var currentVar = (Operand) assign.getDest();
+
+                        boolean leftIsCurrentVar = (leftOperand instanceof Operand leftOp) &&
+                                leftOp.getName().equals(currentVar.getName());
+                        boolean rightIsCurrentVar = (rightOperand instanceof Operand rightOp) &&
+                                rightOp.getName().equals(currentVar.getName());
+
+                        if ((leftIsCurrentVar && rightOperand instanceof LiteralElement) ||
+                                (rightIsCurrentVar && leftOperand instanceof LiteralElement)) {
+
+                            var literalElement = leftIsCurrentVar ? (LiteralElement) rightOperand : (LiteralElement) leftOperand;
+
+                            try {
+                                int increment = Integer.parseInt(literalElement.getLiteral());
+                                if (increment >= -128 && increment <= 127) {
+                                    var reg = currentMethod.getVarTable().get(currentVar.getName()).getVirtualReg();
+                                    code.append("iinc ").append(reg).append(" ").append(increment).append(NL);
+                                    return code.toString();
+                                }
+                            } catch (NumberFormatException e) {
+                                // normal assignment
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
         code.append(apply(assign.getRhs()));
 
         var lhs = assign.getDest();
