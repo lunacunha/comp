@@ -286,19 +286,28 @@ public class JasminGenerator {
 
     private String generateInvokeVirtual(InvokeVirtualInstruction invokeVirtualInstruction) {
         var code = new StringBuilder();
-        currStackSize -= 1;
-        code.append(apply( invokeVirtualInstruction.getCaller()));
+
+        code.append(apply(invokeVirtualInstruction.getCaller()));
+
         var params = "";
         for (int i = 0; i < invokeVirtualInstruction.getArguments().size(); i++) {
             var argument = invokeVirtualInstruction.getArguments().get(i);
-            params += types.toJasminType(argument.getType(),false);
-            code.append(apply(argument));
+            params += types.toJasminType(argument.getType(), false);
+            code.append(apply(argument)); // +1 for each argument
         }
+
         var name = ((Operand) invokeVirtualInstruction.getCaller()).getName();
-        var className =  invokeVirtualInstruction.getCaller().getType().toString();
-        code.append("invokevirtual " + types.getImportPath(name,currentMethod,className) + "/" +
+        var className = invokeVirtualInstruction.getCaller().getType().toString();
+        code.append("invokevirtual " + types.getImportPath(name, currentMethod, className) + "/" +
                 ((LiteralElement) invokeVirtualInstruction.getMethodName()).getLiteral()
-                + "(" + params + ")" + types.toJasminType(invokeVirtualInstruction.getReturnType(),false) + NL);
+                + "(" + params + ")" + types.toJasminType(invokeVirtualInstruction.getReturnType(), false) + NL);
+
+        currStackSize -= (1 + invokeVirtualInstruction.getArguments().size());
+
+        if (!invokeVirtualInstruction.getReturnType().toString().equals("VOID")) {
+            currStackSize += 1;
+        }
+
         return code.toString();
     }
 
@@ -365,18 +374,26 @@ public class JasminGenerator {
 
     private String generateInvokeStatic(InvokeStaticInstruction invokeStaticInstruction) {
         var code = new StringBuilder();
-        currStackSize -= 1;
+
         var params = "";
         for (int i = 0; i < invokeStaticInstruction.getArguments().size(); i++) {
             var argument = invokeStaticInstruction.getArguments().get(i);
-            params += types.toJasminType(argument.getType(),false);
-            code.append(apply(argument));
+            params += types.toJasminType(argument.getType(), false);
+            code.append(apply(argument)); // +1 for each argument
         }
+
         var name = ((Operand) invokeStaticInstruction.getCaller()).getName();
         var className = invokeStaticInstruction.getCaller().getType().toString();
-        code.append("invokestatic " + types.getImportPath(name,currentMethod, className) + "/" +
+        code.append("invokestatic " + types.getImportPath(name, currentMethod, className) + "/" +
                 ((LiteralElement) invokeStaticInstruction.getMethodName()).getLiteral()
-                + "(" + params + ")" + types.toJasminType(invokeStaticInstruction.getReturnType(),false) + NL);
+                + "(" + params + ")" + types.toJasminType(invokeStaticInstruction.getReturnType(), false) + NL);
+
+        currStackSize -= invokeStaticInstruction.getArguments().size();
+
+        if (!invokeStaticInstruction.getReturnType().toString().equals("VOID")) {
+            currStackSize += 1;
+        }
+
         return code.toString();
     }
 
@@ -447,16 +464,14 @@ public class JasminGenerator {
 
         // generate a single constructor method
         var defaultConstructor = """
-            ;default constructor
-            .method public <init>()V
-                aload_0
-                invokespecial %s/<init>()V
-                return
-            .end method
-            """.formatted(fullSuperClass);
+        ;default constructor
+        .method public <init>()V
+            aload_0
+            invokespecial %s/<init>()V
+            return
+        .end method
+        """.formatted(fullSuperClass);
         code.append(defaultConstructor);
-        currStackSize += 1;
-        if (currStackSize > maxStackSize) maxStackSize = currStackSize;
 
         // generate code for all other methods
         for (var method : ollirResult.getOllirClass().getMethods()) {
@@ -535,7 +550,7 @@ public class JasminGenerator {
 
         methodBody.append(".end method").append(NL);
 
-        code.append(TAB).append(".limit stack ").append(Math.max(maxStackSize, 4)).append(NL);
+        code.append(TAB).append(".limit stack ").append(Math.max(maxStackSize, 1)).append(NL);
         code.append(TAB).append(".limit locals ").append(maxlocals).append(NL);
         code.append(methodBody.toString());
 
@@ -627,20 +642,28 @@ public class JasminGenerator {
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
         var type = operand.getType().toString();
-        System.out.println("type: " + type);
         currStackSize -= 1;
         if (type.contains("[]") || type.contains("OBJECTREF")) {
-            // Reference -> astore
-            if (reg <= 3) code.append("astore_").append(reg).append(NL);
-            else code.append("astore ").append(reg).append(NL);
+            // reference -> astore
+            if (reg <= 3) {
+                code.append("astore_").append(reg).append(NL);
+            }
+            else {
+                code.append("astore ").append(reg).append(NL);
+            }
         } else {
             // int and bool -> istore
-            if (reg <= 3) code.append("istore_").append(reg).append(NL);
-            else code.append("istore ").append(reg).append(NL);
+            if (reg <= 3) {
+                code.append("istore_").append(reg).append(NL);
+            }
+            else {
+                code.append("istore ").append(reg).append(NL);
+            }
         }
 
         return code.toString();
     }
+
     private String generateSingleOp(SingleOpInstruction singleOp) {
         return apply(singleOp.getSingleOperand());
     }
