@@ -101,6 +101,7 @@ public class JasminGenerator {
 
         if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
             code.append(apply(left));
+            currStackSize -= 1;
             switch (op) {
                 case LTH  -> code.append("iflt  ").append(label).append(NL);
                 case GTE  -> code.append("ifge  ").append(label).append(NL);
@@ -115,6 +116,7 @@ public class JasminGenerator {
 
         code.append(apply(left));
         code.append(apply(right));
+        currStackSize -= 2;
         switch (op) {
             case LTH  -> code.append("if_icmplt ").append(label).append(NL);
             case GTH  -> code.append("if_icmpgt ").append(label).append(NL);
@@ -133,11 +135,13 @@ public class JasminGenerator {
 
     private String generatePutField(PutFieldInstruction putFieldInstruction) {
         //TODO
+        currStackSize -= 2;
         return "; " + putFieldInstruction.toString() + NL;
     }
 
     private String generateInvokeVirtual(InvokeVirtualInstruction invokeVirtualInstruction) {
         var code = new StringBuilder();
+        currStackSize -= 1;
         var params = "";
         for (int i = 0; i < invokeVirtualInstruction.getArguments().size(); i++) {
             var argument = invokeVirtualInstruction.getArguments().get(i);
@@ -154,6 +158,7 @@ public class JasminGenerator {
 
     private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecialInstruction) {
         //TODO
+        currStackSize -= 1;
         return ";" + invokeSpecialInstruction.toString() + NL;
     }
 
@@ -182,6 +187,8 @@ public class JasminGenerator {
 
             code.append("new ").append(className).append(NL);
             code.append("dup").append(NL); // Duplicate reference for constructor call
+            currStackSize += 2;
+            if (currStackSize > maxStackSize) maxStackSize = currStackSize;
         }
 
         return code.toString();
@@ -189,6 +196,7 @@ public class JasminGenerator {
 
     private String generateInvokeStatic(InvokeStaticInstruction invokeStaticInstruction) {
         var code = new StringBuilder();
+        currStackSize -= 1;
         var params = "";
         for (int i = 0; i < invokeStaticInstruction.getArguments().size(); i++) {
             var argument = invokeStaticInstruction.getArguments().get(i);
@@ -407,7 +415,7 @@ public class JasminGenerator {
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
         var type = operand.getType().toString();
-
+        currStackSize -= 1;
         if (type.contains("[]") || type.contains("array") || type.contains("ARRAY")) {
             // Reference -> astore
             if (reg <= 3) code.append("astore_").append(reg).append(NL);
@@ -426,6 +434,8 @@ public class JasminGenerator {
     }
 
     private String generateLiteral(LiteralElement literal) {
+        currStackSize += 1;
+        if (currStackSize > maxStackSize) maxStackSize = currStackSize;
         if (Integer.valueOf(literal.getLiteral()) == -1) return "iconst_m1" + NL;
         if (Integer.valueOf(literal.getLiteral()) < 6 && Integer.valueOf(literal.getLiteral()) >= 0) {
             return "iconst_" + literal.getLiteral() + NL;
@@ -448,15 +458,20 @@ public class JasminGenerator {
         if (type.contains("[]") || type.contains("array") || type.contains("ARRAY")) {
             // reference -> aload
             if (reg <= 3) return "aload_" + reg + NL;
+            currStackSize += 1;
+            if (currStackSize > maxStackSize) maxStackSize = currStackSize;
             return "aload " + reg + NL;
         } else {
             // int and bool -> iload
             if (reg <= 3) return "iload_" + reg + NL;
+            currStackSize += 1;
+            if (currStackSize > maxStackSize) maxStackSize = currStackSize;
             return "iload " + reg + NL;
         }
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
+        currStackSize -= 1;
         switch (binaryOp.getOperation().getOpType()) {
             case ADD  -> {
                 var code = new StringBuilder();
@@ -495,6 +510,7 @@ public class JasminGenerator {
 
 
     private String generateLesserOp(BinaryOpInstruction binOp) {
+        currStackSize += 1;
         var code     = new StringBuilder();
         var left     = binOp.getLeftOperand();
         var right    = binOp.getRightOperand();
@@ -509,8 +525,10 @@ public class JasminGenerator {
 
         if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
             code.append("iflt  ").append(lblT).append(NL);
+            currStackSize -= 1;
         } else {
             code.append("if_icmplt ").append(lblT).append(NL);
+            currStackSize -= 2;
         }
 
         code.append("iconst_0").append(NL);
@@ -518,6 +536,7 @@ public class JasminGenerator {
 
         code.append(lblT).append(":").append(NL);
         code.append("iconst_1").append(NL);
+        currStackSize += 1;
 
         code.append(lblE).append(":").append(NL);
 
@@ -543,7 +562,7 @@ public class JasminGenerator {
                 code.append("areturn").append(NL);
                 break;
         }
-
+        currStackSize = 0;
         return code.toString();
     }
 }
