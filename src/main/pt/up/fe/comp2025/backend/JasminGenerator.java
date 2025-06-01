@@ -153,45 +153,70 @@ public class JasminGenerator {
     }
 
     private String generateOpCond(OpCondInstruction opCondInstruction) {
-        var code      = new StringBuilder();
-        var cond      = opCondInstruction.getCondition();
-        var operands  = cond.getOperands();
-        String label  = opCondInstruction.getLabel();
+        var code = new StringBuilder();
+        var cond = opCondInstruction.getCondition();
+        var operands = cond.getOperands();
+        String label = opCondInstruction.getLabel();
 
         if (operands.size() != 2) {
             throw new RuntimeException("Expected 2 operands for comparison, got " + operands.size());
         }
-        var left  = operands.get(0);
+
+        var left = operands.get(0);
         var right = operands.get(1);
-        var op    = cond.getOperation().getOpType();
+        var op = cond.getOperation().getOpType();
 
         if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
             code.append(apply(left));
             currStackSize -= 1;
             switch (op) {
-                case LTH  -> code.append("iflt  ").append(label).append(NL);
-                case GTE  -> code.append("ifge  ").append(label).append(NL);
-                case GTH  -> code.append("ifgt  ").append(label).append(NL);
-                case LTE  -> code.append("ifle  ").append(label).append(NL);
-                case EQ   -> code.append("ifeq  ").append(label).append(NL);
-                case NEQ  -> code.append("ifne  ").append(label).append(NL);
-                default   -> throw new NotImplementedException(op);
+                case LTH -> code.append("iflt ").append(label).append(NL);
+                case GTE -> code.append("ifge ").append(label).append(NL);
+                case GTH -> code.append("ifgt ").append(label).append(NL);
+                case LTE -> code.append("ifle ").append(label).append(NL);
+                case EQ -> code.append("ifeq ").append(label).append(NL);
+                case NEQ -> code.append("ifne ").append(label).append(NL);
+                default -> throw new NotImplementedException(op);
             }
+            return code.toString();
+        }
+
+        if (op == OperationType.ANDB) {
+            int skipLabel = counter++;
+            code.append(apply(left));
+            code.append("ifeq skip_and_").append(skipLabel).append(NL); // if left is false -> skip
+            currStackSize -= 1;
+            code.append(apply(right));
+            code.append("ifne ").append(label).append(NL); // if right is true -> jump
+            currStackSize -= 1;
+            code.append("skip_and_").append(skipLabel).append(":").append(NL);
+            return code.toString();
+        }
+
+        if (op == OperationType.ORB) {
+            code.append(apply(left));
+            code.append("ifne ").append(label).append(NL); // if left is true -> jump
+            currStackSize -= 1;
+            code.append(apply(right));
+            code.append("ifne ").append(label).append(NL); // if right is true -> jump
+            currStackSize -= 1;
             return code.toString();
         }
 
         code.append(apply(left));
         code.append(apply(right));
         currStackSize -= 2;
+
         switch (op) {
-            case LTH  -> code.append("if_icmplt ").append(label).append(NL);
-            case GTH  -> code.append("if_icmpgt ").append(label).append(NL);
-            case LTE  -> code.append("if_icmple ").append(label).append(NL);
-            case GTE  -> code.append("if_icmpge ").append(label).append(NL);
-            case EQ   -> code.append("if_icmpeq ").append(label).append(NL);
-            case NEQ  -> code.append("if_icmpne ").append(label).append(NL);
-            default   -> throw new NotImplementedException(op);
+            case LTH -> code.append("if_icmplt ").append(label).append(NL);
+            case GTH -> code.append("if_icmpgt ").append(label).append(NL);
+            case LTE -> code.append("if_icmple ").append(label).append(NL);
+            case GTE -> code.append("if_icmpge ").append(label).append(NL);
+            case EQ -> code.append("if_icmpeq ").append(label).append(NL);
+            case NEQ -> code.append("if_icmpne ").append(label).append(NL);
+            default -> throw new NotImplementedException(op);
         }
+
         return code.toString();
     }
 
