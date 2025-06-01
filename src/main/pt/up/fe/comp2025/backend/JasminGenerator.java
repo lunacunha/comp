@@ -420,38 +420,49 @@ public class JasminGenerator {
     }
 
     private String generateClassUnit(ClassUnit classUnit) {
-
         var code = new StringBuilder();
 
         // generate class name
         var className = ollirResult.getOllirClass().getClassName();
         code.append(".class ").append(className).append(NL).append(NL);
 
-        // TODO: When you support 'extends', this must be updated
         var fullSuperClass = "java/lang/Object";
 
         code.append(".super ").append(fullSuperClass).append(NL);
 
+        // field declarations
+        for (var field : ollirResult.getOllirClass().getFields()) {
+            var fieldName = field.getFieldName();
+            var fieldType = types.toJasminType(field.getFieldType(), false);
+            var modifier = types.getModifier(field.getFieldAccessModifier());
+            var isStatic = field.isStaticField() ? "static " : "";
+
+            code.append(".field ").append(modifier).append(isStatic)
+                    .append(fieldName).append(" ").append(fieldType).append(NL);
+        }
+
+        if (!ollirResult.getOllirClass().getFields().isEmpty()) {
+            code.append(NL);
+        }
+
         // generate a single constructor method
         var defaultConstructor = """
-                ;default constructor
-                .method public <init>()V
-                    aload_0
-                    invokespecial %s/<init>()V
-                    return
-                .end method
-                """.formatted(fullSuperClass);
+            ;default constructor
+            .method public <init>()V
+                aload_0
+                invokespecial %s/<init>()V
+                return
+            .end method
+            """.formatted(fullSuperClass);
         code.append(defaultConstructor);
         currStackSize += 1;
         if (currStackSize > maxStackSize) maxStackSize = currStackSize;
 
         // generate code for all other methods
         for (var method : ollirResult.getOllirClass().getMethods()) {
-
             if (method.isConstructMethod()) {
                 continue;
             }
-
             code.append(apply(method));
         }
 
@@ -492,11 +503,19 @@ public class JasminGenerator {
                 .append("(").append(params).append(")").append(returnType).append(NL);
 
         int maxlocals = 0;
+
+        if (!method.isStaticMethod()) {
+            maxlocals = 1;
+        }
+
+        maxlocals += method.getParams().size();
+
         for (var variable : method.getVarTable().keySet()) {
             var descriptor = method.getVarTable().get(variable);
             if (descriptor != null) {
-                if (descriptor.getVirtualReg() + 1 > maxlocals) {
-                    maxlocals = descriptor.getVirtualReg() + 1;
+                int regIndex = descriptor.getVirtualReg();
+                if (regIndex + 1 > maxlocals) {
+                    maxlocals = regIndex + 1;
                 }
             }
         }
