@@ -45,7 +45,7 @@ public class JasminUtils {
         throw new NotImplementedException(className);
     }
 
-    public String toJasminType(Type type) {
+    public String toJasminType(Type type, boolean isNew) {
         if (type instanceof BuiltinType builtinType) {
             switch (builtinType.getKind()) {
                 case INT32:
@@ -60,13 +60,14 @@ public class JasminUtils {
                     throw new NotImplementedException();
             }
         }  else if (type instanceof ClassType classType) {
+            if (isNew) {return classType.getName().replace('.', '/');}
             return "L" + classType.getName().replace('.', '/') + ";";
         } else if (type instanceof ArrayType arrayType) {
             String res = "";
             for (int i = 0; i < arrayType.getNumDimensions(); i++) {
                 res += "[";
             }
-            res += toJasminType(arrayType.getElementType());
+            res += toJasminType(arrayType.getElementType(), isNew);
             return res;
         } else {
             throw new NotImplementedException();

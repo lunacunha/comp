@@ -128,6 +128,7 @@ public class JasminGenerator {
         }
         return code.toString();
     }
+
     private String generateGetField(GetFieldInstruction getFieldInstruction) {
         //TODO
         return "; " + getFieldInstruction.toString() + NL;
@@ -142,24 +143,41 @@ public class JasminGenerator {
     private String generateInvokeVirtual(InvokeVirtualInstruction invokeVirtualInstruction) {
         var code = new StringBuilder();
         currStackSize -= 1;
+        code.append(apply( invokeVirtualInstruction.getCaller()));
         var params = "";
         for (int i = 0; i < invokeVirtualInstruction.getArguments().size(); i++) {
             var argument = invokeVirtualInstruction.getArguments().get(i);
-            params += types.toJasminType(argument.getType());
+            params += types.toJasminType(argument.getType(),false);
             code.append(apply(argument));
         }
         var name = ((Operand) invokeVirtualInstruction.getCaller()).getName();
         var className =  invokeVirtualInstruction.getCaller().getType().toString();
         code.append("invokevirtual " + types.getImportPath(name,currentMethod,className) + "/" +
                 ((LiteralElement) invokeVirtualInstruction.getMethodName()).getLiteral()
-                + "(" + params + ")" + types.toJasminType(invokeVirtualInstruction.getReturnType()) + NL);
+                + "(" + params + ")" + types.toJasminType(invokeVirtualInstruction.getReturnType(),false) + NL);
         return code.toString();
     }
 
     private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecialInstruction) {
-        //TODO
         currStackSize -= 1;
-        return ";" + invokeSpecialInstruction.toString() + NL;
+        var code = new StringBuilder();
+        var params = "";
+        for (int i = 0; i < invokeSpecialInstruction.getArguments().size(); i++) {
+            var argument = invokeSpecialInstruction.getArguments().get(i);
+            params += types.toJasminType(argument.getType(),false);
+            code.append(apply(argument));
+        }
+        var name = ((Operand) invokeSpecialInstruction.getCaller()).getName();
+        var className =  invokeSpecialInstruction.getCaller().getType().toString();
+        code.append(apply( invokeSpecialInstruction.getCaller()));
+        code.append("invokespecial " + types.getImportPath(name,currentMethod,className) + "/" +
+                ((LiteralElement) invokeSpecialInstruction.getMethodName()).getLiteral()
+                + "(" + params + ")" + types.toJasminType(invokeSpecialInstruction.getReturnType(),false) + NL);
+        code.append(apply( invokeSpecialInstruction.getCaller()));
+        var virtualReg = currentMethod.getVarTable().get(((Operand) invokeSpecialInstruction.getCaller()).getName()).getVirtualReg();
+        if (virtualReg <= 3) code.append("astore_" + virtualReg);
+        else code.append("astore " + virtualReg);
+        return code.toString();
     }
 
     private String generateNew(NewInstruction newInstruction) {
@@ -183,11 +201,10 @@ public class JasminGenerator {
             }
         } else {
             var caller = newInstruction.getCaller();
-            var className = caller.getType().toString();
+            var className = types.toJasminType(caller.getType(), true);
 
             code.append("new ").append(className).append(NL);
-            code.append("dup").append(NL); // Duplicate reference for constructor call
-            currStackSize += 2;
+            currStackSize += 1;
             if (currStackSize > maxStackSize) maxStackSize = currStackSize;
         }
 
@@ -200,14 +217,14 @@ public class JasminGenerator {
         var params = "";
         for (int i = 0; i < invokeStaticInstruction.getArguments().size(); i++) {
             var argument = invokeStaticInstruction.getArguments().get(i);
-            params += types.toJasminType(argument.getType());
+            params += types.toJasminType(argument.getType(),false);
             code.append(apply(argument));
         }
         var name = ((Operand) invokeStaticInstruction.getCaller()).getName();
         var className = invokeStaticInstruction.getCaller().getType().toString();
         code.append("invokestatic " + types.getImportPath(name,currentMethod, className) + "/" +
                 ((LiteralElement) invokeStaticInstruction.getMethodName()).getLiteral()
-                + "(" + params + ")" + types.toJasminType(invokeStaticInstruction.getReturnType()) + NL);
+                + "(" + params + ")" + types.toJasminType(invokeStaticInstruction.getReturnType(),false) + NL);
         return code.toString();
     }
 
@@ -314,10 +331,10 @@ public class JasminGenerator {
         var params = "";
         for (int i = 0; i < method.getParams().size(); i++) {
             var param = method.getParam(i);
-            params += types.toJasminType(param.getType());
+            params += types.toJasminType(param.getType(),false);
 
         }
-        var returnType = types.toJasminType(((ReturnInstruction) method.getInstr(method.getInstructions().size() - 1)).getReturnType());
+        var returnType = types.toJasminType(((ReturnInstruction) method.getInstr(method.getInstructions().size() - 1)).getReturnType(),false);
 
         code.append("\n.method ").append(modifier).append(isStatic)
                 .append(methodName)
@@ -415,8 +432,9 @@ public class JasminGenerator {
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
         var type = operand.getType().toString();
+        System.out.println("type: " + type);
         currStackSize -= 1;
-        if (type.contains("[]") || type.contains("array") || type.contains("ARRAY")) {
+        if (type.contains("[]") || type.contains("OBJECTREF")) {
             // Reference -> astore
             if (reg <= 3) code.append("astore_").append(reg).append(NL);
             else code.append("astore ").append(reg).append(NL);
@@ -455,7 +473,7 @@ public class JasminGenerator {
 
         var type = operand.getType().toString();
 
-        if (type.contains("[]") || type.contains("array") || type.contains("ARRAY")) {
+        if (type.contains("[]") || type.contains("array") || type.contains("ARRAY") || type.contains("OBJECTREF")) {
             // reference -> aload
             if (reg <= 3) return "aload_" + reg + NL;
             currStackSize += 1;
