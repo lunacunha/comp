@@ -22,6 +22,8 @@ public class JasminGenerator {
 
     private static final String NL = "\n";
     private static final String TAB = "   ";
+    private static int currStackSize = 0;
+    private static int maxStackSize = 0;
 
     private final OllirResult ollirResult;
 
@@ -265,6 +267,9 @@ public class JasminGenerator {
                 .end method
                 """.formatted(fullSuperClass);
         code.append(defaultConstructor);
+        currStackSize += 1;
+        if (currStackSize > maxStackSize) maxStackSize = currStackSize;
+
 
         // generate code for all other methods
         for (var method : ollirResult.getOllirClass().getMethods()) {
@@ -311,7 +316,8 @@ public class JasminGenerator {
                 .append("(" + params + ")" + returnType).append(NL);
 
         // Add limits
-        code.append(TAB).append(".limit stack 99").append(NL);
+
+        StringBuilder tempCode = new StringBuilder();
         int maxlocals = 0;
         for (var variable : method.getVarTable().keySet()) {
             var descriptor = method.getVarTable().get(variable);
@@ -321,19 +327,20 @@ public class JasminGenerator {
                 }
             }
         }
-        code.append(TAB).append(".limit locals ").append(maxlocals).append(NL);
+        tempCode.append(TAB).append(".limit locals ").append(maxlocals).append(NL);
 
         for (var inst : method.getInstructions()) {
             var instCode = StringLines.getLines(apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
             for (var lbl : method.getLabels(inst)) {
-                code.append(TAB + lbl + ":" + NL);
+                tempCode.append(TAB + lbl + ":" + NL);
             }
-            code.append(instCode);
+            tempCode.append(instCode);
         }
 
-        code.append(".end method\n");
-
+        tempCode.append(".end method\n");
+        code.append(TAB).append(".limit stack ").append(maxStackSize).append(NL);
+        code.append(tempCode.toString());
         // unset method
         currentMethod = null;
         //System.out.println("ENDING METHOD " + method.getMethodName());
