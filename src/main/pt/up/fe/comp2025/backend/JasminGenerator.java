@@ -382,17 +382,15 @@ public class JasminGenerator {
         String label = singleOpCondInstruction.getLabel();
 
         code.append(apply(condition));
+        currStackSize -= 1;
 
-        code.append("ifne ").append(label).append("\n");
+        code.append("ifne ").append(label).append(NL);
 
         return code.toString();
     }
 
     private String apply(TreeNode node) {
         var code = new StringBuilder();
-
-        // Print the corresponding OLLIR code as a comment
-        //code.append("; ").append(node).append(NL);
 
         code.append(generators.apply(node));
 
@@ -439,13 +437,9 @@ public class JasminGenerator {
         currStackSize += 1;
         if (currStackSize > maxStackSize) maxStackSize = currStackSize;
 
-
         // generate code for all other methods
         for (var method : ollirResult.getOllirClass().getMethods()) {
 
-            // Ignore constructor, since there is always one constructor
-            // that receives no arguments, and has been already added
-            // previously
             if (method.isConstructMethod()) {
                 continue;
             }
@@ -457,7 +451,6 @@ public class JasminGenerator {
     }
 
     private String generateMethod(Method method) {
-        // Reset stack tracking for each method
         currStackSize = 0;
         maxStackSize = 0;
 
@@ -478,18 +471,18 @@ public class JasminGenerator {
         var params = "";
         for (int i = 0; i < method.getParams().size(); i++) {
             var param = method.getParam(i);
-            params += types.toJasminType(param.getType(),false);
-
+            params += types.toJasminType(param.getType(), false);
         }
-        var returnType = types.toJasminType(((ReturnInstruction) method.getInstr(method.getInstructions().size() - 1)).getReturnType(),false);
+
+        var returnType = types.toJasminType(
+                ((ReturnInstruction) method.getInstr(method.getInstructions().size() - 1)).getReturnType(),
+                false
+        );
 
         code.append("\n.method ").append(modifier).append(isStatic)
                 .append(methodName)
-                .append("(" + params + ")" + returnType).append(NL);
+                .append("(").append(params).append(")").append(returnType).append(NL);
 
-        // Add limits
-
-        StringBuilder tempCode = new StringBuilder();
         int maxlocals = 0;
         for (var variable : method.getVarTable().keySet()) {
             var descriptor = method.getVarTable().get(variable);
@@ -499,24 +492,24 @@ public class JasminGenerator {
                 }
             }
         }
-        tempCode.append(TAB).append(".limit locals ").append(maxlocals).append(NL);
 
-        // Generate method body first to calculate actual max stack
         StringBuilder methodBody = new StringBuilder();
+
         for (var inst : method.getInstructions()) {
+            var instLabels = method.getLabels(inst);
+            for (var lbl : instLabels) {
+                methodBody.append(lbl).append(":").append(NL);
+            }
+
             var instCode = StringLines.getLines(apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
-            for (var lbl : method.getLabels(inst)) {
-                methodBody.append(TAB + lbl + ":" + NL);
-            }
             methodBody.append(instCode);
         }
 
-        methodBody.append(".end method\n");
+        methodBody.append(".end method").append(NL);
 
-        // Add stack limit with calculated max (minimum 4 to be safe)
         code.append(TAB).append(".limit stack ").append(Math.max(maxStackSize, 4)).append(NL);
-        code.append(tempCode.toString());
+        code.append(TAB).append(".limit locals ").append(maxlocals).append(NL);
         code.append(methodBody.toString());
 
         // unset method
