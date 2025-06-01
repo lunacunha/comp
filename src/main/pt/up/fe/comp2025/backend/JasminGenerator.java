@@ -637,43 +637,223 @@ public class JasminGenerator {
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
-        currStackSize -= 1;
-        switch (binaryOp.getOperation().getOpType()) {
-            case ADD  -> {
+        var opType = binaryOp.getOperation().getOpType();
+
+        switch (opType) {
+            case ADD -> {
                 var code = new StringBuilder();
                 code.append(apply(binaryOp.getLeftOperand()));
                 code.append(apply(binaryOp.getRightOperand()));
                 code.append("iadd").append(NL);
+                currStackSize -= 1;
                 return code.toString();
             }
-            case MUL  -> {
+            case MUL -> {
                 var code = new StringBuilder();
                 code.append(apply(binaryOp.getLeftOperand()));
                 code.append(apply(binaryOp.getRightOperand()));
                 code.append("imul").append(NL);
+                currStackSize -= 1;
                 return code.toString();
             }
-            case SUB  -> {
+            case SUB -> {
                 var code = new StringBuilder();
                 code.append(apply(binaryOp.getLeftOperand()));
                 code.append(apply(binaryOp.getRightOperand()));
                 code.append("isub").append(NL);
+                currStackSize -= 1;
                 return code.toString();
             }
-            case DIV  -> {
+            case DIV -> {
                 var code = new StringBuilder();
                 code.append(apply(binaryOp.getLeftOperand()));
                 code.append(apply(binaryOp.getRightOperand()));
                 code.append("idiv").append(NL);
+                currStackSize -= 1;
                 return code.toString();
             }
-            case LTH  -> {
+            case LTH -> {
                 return generateLesserOp(binaryOp);
             }
-            default   -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
+            case GTH -> {
+                var code = new StringBuilder();
+                var left = binaryOp.getLeftOperand();
+                var right = binaryOp.getRightOperand();
+
+                int idT = counter++;
+                int idE = counter++;
+                String lblT = "cmpTrue" + idT;
+                String lblE = "cmpEnd" + idE;
+
+                code.append(apply(left));
+                code.append(apply(right));
+
+                if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
+                    code.append("ifgt ").append(lblT).append(NL);
+                    currStackSize -= 1;
+                } else {
+                    code.append("if_icmpgt ").append(lblT).append(NL);
+                    currStackSize -= 2;
+                }
+
+                code.append("iconst_0").append(NL);
+                code.append("goto ").append(lblE).append(NL);
+
+                code.append(lblT).append(":").append(NL);
+                code.append("iconst_1").append(NL);
+                currStackSize += 1;
+
+                code.append(lblE).append(":").append(NL);
+
+                return code.toString();
+            }
+            case LTE -> {
+                var code = new StringBuilder();
+                var left = binaryOp.getLeftOperand();
+                var right = binaryOp.getRightOperand();
+
+                int idT = counter++;
+                int idE = counter++;
+                String lblT = "cmpTrue" + idT;
+                String lblE = "cmpEnd" + idE;
+
+                code.append(apply(left));
+                code.append(apply(right));
+
+                if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
+                    code.append("ifle ").append(lblT).append(NL);
+                    currStackSize -= 1;
+                } else {
+                    code.append("if_icmple ").append(lblT).append(NL);
+                    currStackSize -= 2;
+                }
+
+                code.append("iconst_0").append(NL);
+                code.append("goto ").append(lblE).append(NL);
+
+                code.append(lblT).append(":").append(NL);
+                code.append("iconst_1").append(NL);
+                currStackSize += 1;
+
+                code.append(lblE).append(":").append(NL);
+
+                return code.toString();
+            }
+            case GTE -> {
+                var code = new StringBuilder();
+                var left = binaryOp.getLeftOperand();
+                var right = binaryOp.getRightOperand();
+
+                int idT = counter++;
+                int idE = counter++;
+                String lblT = "cmpTrue" + idT;
+                String lblE = "cmpEnd" + idE;
+
+                code.append(apply(left));
+                code.append(apply(right));
+
+                if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
+                    code.append("ifge ").append(lblT).append(NL);
+                    currStackSize -= 1;
+                } else {
+                    code.append("if_icmpge ").append(lblT).append(NL);
+                    currStackSize -= 2;
+                }
+
+                code.append("iconst_0").append(NL);
+                code.append("goto ").append(lblE).append(NL);
+
+                code.append(lblT).append(":").append(NL);
+                code.append("iconst_1").append(NL);
+                currStackSize += 1;
+
+                code.append(lblE).append(":").append(NL);
+
+                return code.toString();
+            }
+            case EQ -> {
+                var code = new StringBuilder();
+                var left = binaryOp.getLeftOperand();
+                var right = binaryOp.getRightOperand();
+
+                int idT = counter++;
+                int idE = counter++;
+                String lblT = "cmpTrue" + idT;
+                String lblE = "cmpEnd" + idE;
+
+                code.append(apply(left));
+                code.append(apply(right));
+
+                if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
+                    code.append("ifeq ").append(lblT).append(NL);
+                    currStackSize -= 1;
+                } else {
+                    code.append("if_icmpeq ").append(lblT).append(NL);
+                    currStackSize -= 2;
+                }
+
+                code.append("iconst_0").append(NL);
+                code.append("goto ").append(lblE).append(NL);
+
+                code.append(lblT).append(":").append(NL);
+                code.append("iconst_1").append(NL);
+                currStackSize += 1;
+
+                code.append(lblE).append(":").append(NL);
+
+                return code.toString();
+            }
+            case NEQ -> {
+                var code = new StringBuilder();
+                var left = binaryOp.getLeftOperand();
+                var right = binaryOp.getRightOperand();
+
+                int idT = counter++;
+                int idE = counter++;
+                String lblT = "cmpTrue" + idT;
+                String lblE = "cmpEnd" + idE;
+
+                code.append(apply(left));
+                code.append(apply(right));
+
+                if (right instanceof LiteralElement lit && "0".equals(lit.getLiteral())) {
+                    code.append("ifne ").append(lblT).append(NL);
+                    currStackSize -= 1;
+                } else {
+                    code.append("if_icmpne ").append(lblT).append(NL);
+                    currStackSize -= 2;
+                }
+
+                code.append("iconst_0").append(NL);
+                code.append("goto ").append(lblE).append(NL);
+
+                code.append(lblT).append(":").append(NL);
+                code.append("iconst_1").append(NL);
+                currStackSize += 1;
+
+                code.append(lblE).append(":").append(NL);
+
+                return code.toString();
+            }
+            case ANDB -> {
+                var code = new StringBuilder();
+                code.append(apply(binaryOp.getLeftOperand()));
+                code.append(apply(binaryOp.getRightOperand()));
+                code.append("iand").append(NL);
+                currStackSize -= 1;
+                return code.toString();
+            }
+            case ORB -> {
+                var code = new StringBuilder();
+                code.append(apply(binaryOp.getLeftOperand()));
+                code.append(apply(binaryOp.getRightOperand()));
+                code.append("ior").append(NL);
+                currStackSize -= 1;
+                return code.toString();
+            }
+            default -> throw new NotImplementedException(opType);
         }
     }
-
 
     private String generateLesserOp(BinaryOpInstruction binOp) {
         currStackSize += 1;
