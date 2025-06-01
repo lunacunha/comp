@@ -82,8 +82,53 @@ public class JasminGenerator {
     }
 
     private String generateUnaryOp(UnaryOpInstruction unaryOpInstruction) {
-        //TODO
-        return "; " + unaryOpInstruction.toString() + NL;
+        var code = new StringBuilder();
+        var operand = unaryOpInstruction.getOperand();
+        var opType = unaryOpInstruction.getOperation().getOpType();
+
+        code.append(apply(operand));
+
+        switch (opType) {
+            case NOT -> {
+                int idT = counter++;
+                int idE = counter++;
+                String lblT = "notTrue" + idT;
+                String lblE = "notEnd" + idE;
+
+                code.append("ifeq ").append(lblT).append(NL);
+                currStackSize -= 1;
+
+                code.append("iconst_0").append(NL);
+                code.append("goto ").append(lblE).append(NL);
+
+                code.append(lblT).append(":").append(NL);
+                code.append("iconst_1").append(NL);
+                currStackSize += 1;
+
+                code.append(lblE).append(":").append(NL);
+            }
+            case NOTB -> {
+                int idT = counter++;
+                int idE = counter++;
+                String lblT = "notTrue" + idT;
+                String lblE = "notEnd" + idE;
+
+                code.append("ifeq ").append(lblT).append(NL);
+                currStackSize -= 1;
+
+                code.append("iconst_0").append(NL);
+                code.append("goto ").append(lblE).append(NL);
+
+                code.append(lblT).append(":").append(NL);
+                code.append("iconst_1").append(NL);
+                currStackSize += 1;
+
+                code.append(lblE).append(":").append(NL);
+            }
+            default -> throw new NotImplementedException(opType);
+        }
+
+        return code.toString();
     }
 
     private String generateOpCond(OpCondInstruction opCondInstruction) {
