@@ -518,17 +518,16 @@ public class JasminGenerator {
 
         var type = operand.getType().toString();
 
+        currStackSize += 1;
+        if (currStackSize > maxStackSize) maxStackSize = currStackSize;
+
         if (type.contains("[]") || type.contains("array") || type.contains("ARRAY") || type.contains("OBJECTREF")) {
             // reference -> aload
             if (reg <= 3) return "aload_" + reg + NL;
-            currStackSize += 1;
-            if (currStackSize > maxStackSize) maxStackSize = currStackSize;
             return "aload " + reg + NL;
         } else {
             // int and bool -> iload
             if (reg <= 3) return "iload_" + reg + NL;
-            currStackSize += 1;
-            if (currStackSize > maxStackSize) maxStackSize = currStackSize;
             return "iload " + reg + NL;
         }
     }
