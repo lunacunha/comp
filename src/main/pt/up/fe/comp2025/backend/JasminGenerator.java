@@ -1,3 +1,5 @@
+
+
 package pt.up.fe.comp2025.backend;
 
 import org.specs.comp.ollir.*;
@@ -69,6 +71,25 @@ public class JasminGenerator {
         generators.put(ArrayLengthInstruction.class, this::generateArrayLength);
         generators.put(PutFieldInstruction.class, this::generatePutField);
         generators.put(GetFieldInstruction.class, this::generateGetField);
+        generators.put(ArrayOperand.class, this::generateArrayOperand);
+    }
+
+    private String generateArrayOperand(ArrayOperand arrayOperand) {
+        var code = new StringBuilder();
+
+        var arrayName = arrayOperand.getName();
+        var arrayVarDescriptor = currentMethod.getVarTable().get(arrayName);
+        var arrayType = arrayVarDescriptor.getVarType();
+
+        var arrayRef = new Operand(arrayName, arrayType);
+        code.append(apply(arrayRef));
+
+        code.append(apply(arrayOperand.getIndexOperands().get(0)));
+
+        code.append("iaload").append(NL);
+        currStackSize -= 1;
+
+        return code.toString();
     }
 
     private String generateArrayLength(ArrayLengthInstruction arrayLengthInstruction) {
@@ -358,7 +379,10 @@ public class JasminGenerator {
     }
 
     private String generateMethod(Method method) {
-        //System.out.println("STARTING METHOD " + method.getMethodName());
+        // Reset stack tracking for each method
+        currStackSize = 0;
+        maxStackSize = 0;
+
         // set method
         currentMethod = method;
 
@@ -399,26 +423,53 @@ public class JasminGenerator {
         }
         tempCode.append(TAB).append(".limit locals ").append(maxlocals).append(NL);
 
+        // Generate method body first to calculate actual max stack
+        StringBuilder methodBody = new StringBuilder();
         for (var inst : method.getInstructions()) {
             var instCode = StringLines.getLines(apply(inst)).stream()
                     .collect(Collectors.joining(NL + TAB, TAB, NL));
             for (var lbl : method.getLabels(inst)) {
-                tempCode.append(TAB + lbl + ":" + NL);
+                methodBody.append(TAB + lbl + ":" + NL);
             }
-            tempCode.append(instCode);
+            methodBody.append(instCode);
         }
 
-        tempCode.append(".end method\n");
-        code.append(TAB).append(".limit stack ").append(maxStackSize).append(NL);
+        methodBody.append(".end method\n");
+
+        // Add stack limit with calculated max (minimum 4 to be safe)
+        code.append(TAB).append(".limit stack ").append(Math.max(maxStackSize, 4)).append(NL);
         code.append(tempCode.toString());
+        code.append(methodBody.toString());
+
         // unset method
         currentMethod = null;
-        //System.out.println("ENDING METHOD " + method.getMethodName());
         return code.toString();
     }
 
     private String generateAssign(AssignInstruction assign) {
         var code = new StringBuilder();
+
+        // checks if it is an array element assignment
+        var dest = assign.getDest();
+        if (dest instanceof ArrayOperand) {
+            var arrayOperand = (ArrayOperand) dest;
+
+            var arrayName = arrayOperand.getName();
+            var arrayVarDescriptor = currentMethod.getVarTable().get(arrayName);
+            var arrayType = arrayVarDescriptor.getVarType();
+
+            var arrayRef = new Operand(arrayName, arrayType);
+            code.append(apply(arrayRef));
+
+            code.append(apply(arrayOperand.getIndexOperands().get(0)));
+
+            code.append(apply(assign.getRhs()));
+
+            code.append("iastore").append(NL);
+            currStackSize -= 3; // array ref + index + value
+
+            return code.toString();
+        }
 
         // checks if it is iinc pattern
         if (assign.getRhs() instanceof SingleOpInstruction singleOp &&
@@ -464,6 +515,7 @@ public class JasminGenerator {
                 }
             }
         }
+
         code.append(apply(assign.getRhs()));
 
         var lhs = assign.getDest();
@@ -491,7 +543,6 @@ public class JasminGenerator {
 
         return code.toString();
     }
-
     private String generateSingleOp(SingleOpInstruction singleOp) {
         return apply(singleOp.getSingleOperand());
     }
