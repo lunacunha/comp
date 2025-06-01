@@ -196,14 +196,67 @@ public class JasminGenerator {
     }
 
     private String generateGetField(GetFieldInstruction getFieldInstruction) {
-        //TODO
-        return "; " + getFieldInstruction.toString() + NL;
+        var code = new StringBuilder();
+
+        code.append(apply(getFieldInstruction.getObject()));
+
+        var fieldOperand = getFieldInstruction.getField();
+        var fieldName = ((Operand) fieldOperand).getName();
+        var fieldType = getFieldInstruction.getFieldType();
+        var objectType = getFieldInstruction.getObject().getType();
+
+        String className;
+        if (objectType.toString().startsWith("OBJECTREF(")) {
+            int startIndex = objectType.toString().indexOf('(') + 1;
+            int endIndex = objectType.toString().indexOf(')');
+            className = objectType.toString().substring(startIndex, endIndex);
+        } else {
+            className = currentMethod.getOllirClass().getClassName();
+        }
+
+        code.append("getfield ")
+                .append(className.replace('.', '/'))
+                .append("/")
+                .append(fieldName)
+                .append(" ")
+                .append(types.toJasminType(fieldType, false))
+                .append(NL);
+
+        return code.toString();
     }
 
     private String generatePutField(PutFieldInstruction putFieldInstruction) {
-        //TODO
+        var code = new StringBuilder();
+
+        code.append(apply(putFieldInstruction.getObject()));
+
+        code.append(apply(putFieldInstruction.getValue()));
+
+        var fieldOperand = putFieldInstruction.getField();
+        var fieldName = ((Operand) fieldOperand).getName();
+        var fieldType = putFieldInstruction.getFieldType();
+        var objectType = putFieldInstruction.getObject().getType();
+
+        String className;
+        if (objectType.toString().startsWith("OBJECTREF(")) {
+            int startIndex = objectType.toString().indexOf('(') + 1;
+            int endIndex = objectType.toString().indexOf(')');
+            className = objectType.toString().substring(startIndex, endIndex);
+        } else {
+            className = currentMethod.getOllirClass().getClassName();
+        }
+
+        code.append("putfield ")
+                .append(className.replace('.', '/'))
+                .append("/")
+                .append(fieldName)
+                .append(" ")
+                .append(types.toJasminType(fieldType, false))
+                .append(NL);
+
         currStackSize -= 2;
-        return "; " + putFieldInstruction.toString() + NL;
+
+        return code.toString();
     }
 
     private String generateInvokeVirtual(InvokeVirtualInstruction invokeVirtualInstruction) {
