@@ -303,24 +303,32 @@ public class JasminGenerator {
     }
 
     private String generateInvokeSpecial(InvokeSpecialInstruction invokeSpecialInstruction) {
-        currStackSize -= 1;
         var code = new StringBuilder();
+
+        code.append(apply(invokeSpecialInstruction.getCaller()));
+
         var params = "";
         for (int i = 0; i < invokeSpecialInstruction.getArguments().size(); i++) {
             var argument = invokeSpecialInstruction.getArguments().get(i);
-            params += types.toJasminType(argument.getType(),false);
+            params += types.toJasminType(argument.getType(), false);
             code.append(apply(argument));
         }
-        var name = ((Operand) invokeSpecialInstruction.getCaller()).getName();
-        var className =  invokeSpecialInstruction.getCaller().getType().toString();
-        code.append(apply( invokeSpecialInstruction.getCaller()));
-        code.append("invokespecial " + types.getImportPath(name,currentMethod,className) + "/" +
-                ((LiteralElement) invokeSpecialInstruction.getMethodName()).getLiteral()
-                + "(" + params + ")" + types.toJasminType(invokeSpecialInstruction.getReturnType(),false) + NL);
-        code.append(apply( invokeSpecialInstruction.getCaller()));
-        var virtualReg = currentMethod.getVarTable().get(((Operand) invokeSpecialInstruction.getCaller()).getName()).getVirtualReg();
-        if (virtualReg <= 3) code.append("astore_" + virtualReg);
-        else code.append("astore " + virtualReg);
+
+        var methodName = ((LiteralElement) invokeSpecialInstruction.getMethodName()).getLiteral();
+        var callerName = ((Operand) invokeSpecialInstruction.getCaller()).getName();
+        var className = invokeSpecialInstruction.getCaller().getType().toString();
+        var returnType = types.toJasminType(invokeSpecialInstruction.getReturnType(), false);
+
+        code.append("invokespecial ").append(types.getImportPath(callerName, currentMethod, className))
+                .append("/").append(methodName)
+                .append("(").append(params).append(")").append(returnType).append(NL);
+
+        currStackSize -= (1 + invokeSpecialInstruction.getArguments().size());
+
+        if (!invokeSpecialInstruction.getReturnType().toString().equals("VOID")) {
+            currStackSize += 1;
+        }
+
         return code.toString();
     }
 
